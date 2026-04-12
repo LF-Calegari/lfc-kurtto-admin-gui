@@ -1,0 +1,8 @@
+node_modules
+build
+coverage
+.git
+.cursor
+.credentials
+*.log
+npm-debug.log*

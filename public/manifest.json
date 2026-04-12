@@ -1,0 +1,8 @@
+{
+  "short_name": "Kurtto Admin",
+  "name": "Kurtto Admin",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#E8593C",
+  "background_color": "#F1EFE8"
+}

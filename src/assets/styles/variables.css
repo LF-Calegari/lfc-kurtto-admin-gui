@@ -1,0 +1,20 @@
+:root {
+  /* Override Bootstrap theme — identidade Kurtto */
+  --bs-primary: #e8593c;
+  --bs-primary-rgb: 232, 89, 60;
+  --bs-link-color: #e8593c;
+  --bs-link-hover-color: #d14520;
+
+  --color-primary: #e8593c;
+  --color-primary-hover: #d14520;
+  --color-amber: #f2a623;
+  --color-blush: #faece7;
+  --color-ink: #1a1a1a;
+  --color-charcoal: #3d3d3a;
+  --color-stone: #73726c;
+  --color-ash: #b4b2a9;
+  --color-sand: #f1efe8;
+  --color-success: #1d9e75;
+  --color-error: #e24b4a;
+  --color-info: #378add;
+}

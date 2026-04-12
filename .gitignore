@@ -211,6 +211,9 @@ dist
 **/*.backup.*
 **/*.back.*
 
+# Create React App — artefato de produção
+/build
+
 node_modules
 
 *.sublime*
