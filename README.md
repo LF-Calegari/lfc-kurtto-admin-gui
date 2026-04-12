@@ -52,12 +52,25 @@ docker compose --profile production up web
 Execute **sempre dentro do container** (recomendado):
 
 ```bash
+# Rebuild da imagem quando package*.json, Dockerfile ou dependências mudarem
+docker compose build app
+
+# Checks de qualidade
 docker compose run --rm app npm run lint
 docker compose run --rm app npm run lint:fix
 docker compose run --rm app npx tsc --noEmit
 docker compose run --rm app npm test -- --watchAll=false
 docker compose run --rm app npm run build
+docker compose run --rm app npm run format:check
 ```
+
+### Política mínima de vulnerabilidades (CRA)
+
+O projeto usa `react-scripts` (Create React App), que pode carregar vulnerabilidades transitivas conhecidas sem correção direta no curto prazo. Como mitigação pragmática:
+
+- existe check automatizado de audit no CI para visibilidade contínua;
+- o resultado do audit é **informativo** para evitar bloqueio por dependência transitiva fora de escopo;
+- riscos residuais devem ser registrados no PR até migração de toolchain entrar em escopo.
 
 ## Estrutura principal
 

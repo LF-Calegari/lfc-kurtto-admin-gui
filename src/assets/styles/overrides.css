@@ -3,14 +3,14 @@
   --bs-btn-border-color: var(--color-primary);
   --bs-btn-hover-bg: var(--color-primary-hover);
   --bs-btn-hover-border-color: var(--color-primary-hover);
-  --bs-btn-active-bg: #b83a18;
-  --bs-btn-active-border-color: #b83a18;
+  --bs-btn-active-bg: var(--color-primary-active);
+  --bs-btn-active-border-color: var(--color-primary-active);
 }
 
 .form-control:focus,
 .form-select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 0.2rem rgba(232, 89, 60, 0.15);
+  box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), var(--color-focus-ring-alpha));
 }
 
 .btn {

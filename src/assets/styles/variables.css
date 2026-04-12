@@ -7,6 +7,9 @@
 
   --color-primary: #e8593c;
   --color-primary-hover: #d14520;
+  --color-primary-active: #b83a18;
+  --color-primary-rgb: 232, 89, 60;
+  --color-focus-ring-alpha: 0.15;
   --color-amber: #f2a623;
   --color-blush: #faece7;
   --color-ink: #1a1a1a;
