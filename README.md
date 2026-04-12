@@ -53,6 +53,7 @@ Execute **sempre dentro do container** (recomendado):
 
 ```bash
 docker compose run --rm app npm run lint
+docker compose run --rm app npm run lint:fix
 docker compose run --rm app npx tsc --noEmit
 docker compose run --rm app npm test -- --watchAll=false
 docker compose run --rm app npm run build
