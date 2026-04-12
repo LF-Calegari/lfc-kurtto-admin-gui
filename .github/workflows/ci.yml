@@ -40,7 +40,7 @@ jobs:
         run: npm run build
 
   audit:
-    name: Audit (informativo)
+    name: Audit (high bloqueante com exceções temporárias)
     runs-on: ubuntu-latest
     needs: quality
 
@@ -57,6 +57,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Security audit (high, non-blocking)
-        continue-on-error: true
-        run: npm run audit:high
+      - name: Generate security audit report (high)
+        run: npm audit --audit-level=high --omit=dev --json > audit-report.json || true
+
+      - name: Enforce audit policy (high/critical)
+        run: npm run audit:guard -- --report audit-report.json --exceptions security/audit-exceptions.json

@@ -61,16 +61,16 @@ docker compose run --rm app npm run lint:fix
 docker compose run --rm app npx tsc --noEmit
 docker compose run --rm app npm test -- --watchAll=false
 docker compose run --rm app npm run build
-docker compose run --rm app npm run format:check
 ```
 
 ### Política mínima de vulnerabilidades (CRA)
 
-O projeto usa `react-scripts` (Create React App), que pode carregar vulnerabilidades transitivas conhecidas sem correção direta no curto prazo. Como mitigação pragmática:
+O projeto usa `react-scripts` (Create React App), que pode carregar vulnerabilidades transitivas conhecidas sem correção direta no curto prazo. Como mitigação com governança explícita:
 
-- existe check automatizado de audit no CI para visibilidade contínua;
-- o resultado do audit é **informativo** para evitar bloqueio por dependência transitiva fora de escopo;
-- riscos residuais devem ser registrados no PR até migração de toolchain entrar em escopo.
+- o CI executa `npm audit` com foco em severidade `high`/`critical`;
+- o merge é bloqueado para qualquer risco não mapeado;
+- exceções temporárias e rastreáveis ficam em `security/audit-exceptions.json` com `owner`, `expiresAt` e motivo;
+- riscos residuais devem ser reavaliados no vencimento da exceção ou quando houver patch compatível.
 
 ## Estrutura principal
 

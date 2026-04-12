@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import App from './App';
 
 describe('App', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/');
+  });
+
   it('renderiza Hello World e identificação Kurtto Admin', () => {
     render(<App />);
 
@@ -33,5 +37,13 @@ describe('App', () => {
     await user.click(button);
 
     expect(screen.getByRole('heading', { name: /hello world/i })).toBeInTheDocument();
+  });
+
+  it('não renderiza a tela inicial em rota não mapeada (cenário negativo)', () => {
+    window.history.pushState({}, '', '/rota-inexistente');
+    render(<App />);
+
+    expect(screen.queryByRole('heading', { name: /hello world/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ação primária/i })).not.toBeInTheDocument();
   });
 });
