@@ -1,0 +1,31 @@
+.btn-primary {
+  --bs-btn-bg: var(--color-primary);
+  --bs-btn-border-color: var(--color-primary);
+  --bs-btn-hover-bg: var(--color-primary-hover);
+  --bs-btn-hover-border-color: var(--color-primary-hover);
+  --bs-btn-active-bg: var(--color-primary-active);
+  --bs-btn-active-border-color: var(--color-primary-active);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem rgba(var(--color-primary-rgb), var(--color-focus-ring-alpha));
+}
+
+.btn {
+  border-radius: 8px;
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+}
+
+.card {
+  border-radius: 12px;
+}
+
+.badge {
+  border-radius: 4px;
+}
+
+.modal-content {
+  border-radius: 16px;
+}

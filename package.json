@@ -1,0 +1,56 @@
+{
+  "name": "kurtto-admin-gui",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "bootstrap": "5.3.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5",
+    "web-vitals": "^2.1.4"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "format": "prettier --write \"{src,public}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "format:check": "prettier --check \"{src,public}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
+    "audit:high": "npm audit --audit-level=high --omit=dev",
+    "audit:guard": "node scripts/audit-guard.cjs"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.97",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "prettier": "^3.8.2"
+  }
+}
