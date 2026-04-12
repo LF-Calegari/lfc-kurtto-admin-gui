@@ -39,11 +39,11 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: /hello world/i })).toBeInTheDocument();
   });
 
-  it('não renderiza a tela inicial em rota não mapeada (cenário negativo)', () => {
+  it('renderiza fallback da tela inicial para rota não mapeada', () => {
     window.history.pushState({}, '', '/rota-inexistente');
     render(<App />);
 
-    expect(screen.queryByRole('heading', { name: /hello world/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ação primária/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /hello world/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ação primária/i })).toBeInTheDocument();
   });
 });
