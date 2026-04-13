@@ -3,7 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { act } from 'react';
 
 import Login from './Login';
-import { loginMockCredentials } from './loginMockCredentials';
 
 describe('Login', () => {
   const setViewport = (width: number): void => {
@@ -57,8 +56,8 @@ describe('Login', () => {
     render(<Login />);
 
     await act(async () => {
-      await user.type(screen.getByLabelText(/e-mail/i), loginMockCredentials.email);
-      await user.type(screen.getByLabelText(/senha/i), loginMockCredentials.password);
+      await user.type(screen.getByLabelText(/e-mail/i), 'admin@kurtto.dev');
+      await user.type(screen.getByLabelText(/senha/i), 'abc12345');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -75,8 +74,8 @@ describe('Login', () => {
     render(<Login />);
 
     await act(async () => {
-      await user.type(screen.getByLabelText(/e-mail/i), loginMockCredentials.email);
-      await user.type(screen.getByLabelText(/senha/i), 'senha-errada');
+      await user.type(screen.getByLabelText(/e-mail/i), 'admin@kurtto.dev');
+      await user.type(screen.getByLabelText(/senha/i), '123');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -87,17 +86,39 @@ describe('Login', () => {
     });
   });
 
-  it('mantem layout estrutural nos breakpoints 1024 e 1920', () => {
+  it('mantem layout estrutural consistente nos breakpoints 1024 e 1920', () => {
     setViewport(1024);
     const { container, rerender } = render(<Login />);
 
-    expect(container.querySelector('.col-lg-6')).toBeInTheDocument();
-    expect(screen.getByText(/kurtto admin/i)).toBeInTheDocument();
+    const sections1024 = container.querySelectorAll('section');
+    const [brandSection1024, formSection1024] = Array.from(sections1024);
+    const button1024 = screen.getByRole('button', { name: /entrar/i });
+
+    expect(sections1024).toHaveLength(2);
+    expect(window.innerWidth).toBe(1024);
+    expect(brandSection1024).toHaveClass('col-12', 'col-lg-6', 'd-flex', 'align-items-center');
+    expect(formSection1024).toHaveClass(
+      'col-12',
+      'col-lg-6',
+      'd-flex',
+      'align-items-center',
+      'justify-content-center',
+    );
+    expect(button1024).toHaveClass('w-100');
+    expect(screen.getByLabelText(/e-mail/i)).toBeVisible();
+    expect(screen.getByLabelText(/senha/i)).toBeVisible();
 
     setViewport(1920);
     rerender(<Login />);
 
-    expect(container.querySelector('.col-lg-6')).toBeInTheDocument();
+    const sections1920 = container.querySelectorAll('section');
+    const [brandSection1920, formSection1920] = Array.from(sections1920);
+
+    expect(sections1920).toHaveLength(2);
+    expect(window.innerWidth).toBe(1920);
+    expect(brandSection1920).toHaveClass('col-12', 'col-lg-6');
+    expect(formSection1920).toHaveClass('col-12', 'col-lg-6');
     expect(screen.getByRole('heading', { name: /gerencie seus links com rapidez/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /entrar/i })).toHaveClass('w-100');
   });
 });

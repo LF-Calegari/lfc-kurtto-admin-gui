@@ -1,7 +1,6 @@
 import { FormEvent, useState } from 'react';
 
 import styles from './Login.module.css';
-import { loginMockCredentials } from './loginMockCredentials';
 
 interface LoginFormState {
   email: string;
@@ -15,16 +14,36 @@ interface LoginValidationErrors {
 
 const AUTH_DELAY_MS = 500;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MOCK_EMAIL = process.env.REACT_APP_LOGIN_MOCK_EMAIL?.trim().toLowerCase();
+const MOCK_PASSWORD_HASH = process.env.REACT_APP_LOGIN_MOCK_PASSWORD_HASH?.trim().toLowerCase();
+
+function hashPassword(value: string): string {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+
+  return Math.abs(hash).toString(16);
+}
+
+function isMockLoginValid(formData: LoginFormState): boolean {
+  if (MOCK_EMAIL && MOCK_PASSWORD_HASH) {
+    return (
+      formData.email.trim().toLowerCase() === MOCK_EMAIL &&
+      hashPassword(formData.password) === MOCK_PASSWORD_HASH
+    );
+  }
+
+  return emailPattern.test(formData.email) && formData.password.trim().length >= 8;
+}
 
 async function authenticateMock(formData: LoginFormState): Promise<void> {
   await new Promise((resolve) => {
     setTimeout(resolve, AUTH_DELAY_MS);
   });
 
-  if (
-    formData.email !== loginMockCredentials.email ||
-    formData.password !== loginMockCredentials.password
-  ) {
+  if (!isMockLoginValid(formData)) {
     throw new Error('E-mail ou senha inválidos. Verifique seus dados e tente novamente.');
   }
 }
