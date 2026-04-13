@@ -74,7 +74,7 @@ O projeto usa `react-scripts` (Create React App), que pode carregar vulnerabilid
 
 ## SonarCloud (GitHub Actions)
 
-O workflow `.github/workflows/sonarcloud.yml` envia análise para o SonarCloud em **push** e **pull request** direcionados à branch **`main`**.
+O workflow `.github/workflows/sonarcloud.yml` envia análise para o SonarCloud em **push** para **`main`** e em **pull request** com base em **`main`** ou **`development`** (alinhado ao fluxo de integração do repositório).
 
 ### Pré-requisitos no GitHub
 
