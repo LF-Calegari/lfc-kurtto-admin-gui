@@ -72,9 +72,31 @@ O projeto usa `react-scripts` (Create React App), que pode carregar vulnerabilid
 - exceções temporárias e rastreáveis ficam em `security/audit-exceptions.json` com `owner`, `expiresAt` e motivo;
 - riscos residuais devem ser reavaliados no vencimento da exceção ou quando houver patch compatível.
 
+## SonarCloud (GitHub Actions)
+
+O workflow `.github/workflows/sonarcloud.yml` envia análise para o SonarCloud em **push** e **pull request** direcionados à branch **`main`**.
+
+### Pré-requisitos no GitHub
+
+1. **Projeto no SonarCloud**  
+   Crie/importe o repositório em [SonarCloud](https://sonarcloud.io/) e anote a **Organization key** e o **Project key** (Administration do projeto/organização).
+
+2. **Secret** (repositório ou organização GitHub)  
+   - `SONAR_TOKEN` — token de análise gerado no SonarCloud (nunca commite nem registre em logs).
+
+3. **Variables** (repositório ou organização GitHub)  
+   - `SONAR_ORGANIZATION` — organization key do SonarCloud.  
+   - `SONAR_PROJECT_KEY` — project key do SonarCloud.
+
+Se `SONAR_TOKEN`, `SONAR_ORGANIZATION` ou `SONAR_PROJECT_KEY` estiverem ausentes, o job **falha na primeira etapa** com mensagens indicando o que configurar. O token só é referenciado via `secrets.SONAR_TOKEN`, sem hardcode no repositório.
+
+O escopo de análise e cobertura (LCOV após `npm test -- --coverage`) está em `sonar-project.properties`.
+
 ## Estrutura principal
 
 - `public/` — HTML estático e manifest
 - `src/` — código da aplicação
+- `sonar-project.properties` — escopo e relatórios LCOV para SonarCloud
+- `.github/workflows/` — CI (inclui `ci.yml` e `sonarcloud.yml`)
 - `Dockerfile` — alvos `development` (Node + `npm start`) e `production` (build estático + nginx)
 - `docker-compose.yml` — serviço `app` (dev); serviço `web` com perfil `production`
