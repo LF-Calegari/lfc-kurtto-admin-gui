@@ -19,9 +19,13 @@ const MOCK_PASSWORD_HASH = process.env.REACT_APP_LOGIN_MOCK_PASSWORD_HASH?.trim(
 
 function hashPassword(value: string): string {
   let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(index);
-    hash |= 0;
+  for (let index = 0; index < value.length; ) {
+    const codePoint = value.codePointAt(index);
+    if (codePoint === undefined) {
+      break;
+    }
+    hash = Math.trunc((hash << 5) - hash + codePoint);
+    index += codePoint > 0xffff ? 2 : 1;
   }
 
   return Math.abs(hash).toString(16);
@@ -128,9 +132,9 @@ function Login(): JSX.Element {
               )}
 
               {isAuthenticated && (
-                <div className="alert alert-success" role="status">
+                <output className="alert alert-success d-block" aria-live="polite">
                   Login realizado com sucesso.
-                </div>
+                </output>
               )}
 
               <form noValidate onSubmit={handleSubmit}>
@@ -190,9 +194,8 @@ function Login(): JSX.Element {
 
                 <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
                   {isSubmitting && (
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
+                    <output
+                      className="spinner-border spinner-border-sm me-2 d-inline-block"
                       aria-hidden="true"
                     />
                   )}

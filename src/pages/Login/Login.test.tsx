@@ -73,7 +73,9 @@ describe('Login', () => {
     expect(screen.getByRole('button', { name: /entrando/i })).toBeDisabled();
 
     await waitFor(() => {
-      expect(screen.getByText(/login realizado com sucesso/i)).toBeInTheDocument();
+      const successRegion = screen.getByText(/login realizado com sucesso/i).closest('output');
+      expect(successRegion).toBeInTheDocument();
+      expect(successRegion).toHaveAttribute('aria-live', 'polite');
     });
   });
 
