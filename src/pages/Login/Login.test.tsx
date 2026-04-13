@@ -5,6 +5,14 @@ import { act } from 'react';
 import Login from './Login';
 
 describe('Login', () => {
+  const createValidCredentials = (): { email: string; password: string } => {
+    const timestamp = Date.now();
+    return {
+      email: `user.${timestamp}@mail.test`,
+      password: `Pwd-${timestamp}-safe`,
+    };
+  };
+
   const setViewport = (width: number): void => {
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
@@ -43,7 +51,7 @@ describe('Login', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), 'email-invalido');
-      await user.type(screen.getByLabelText(/senha/i), 'kurtto123');
+      await user.type(screen.getByLabelText(/senha/i), 'senha-curta');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -52,12 +60,13 @@ describe('Login', () => {
 
   it('exibe estado de sucesso ao autenticar com credenciais válidas', async () => {
     const user = userEvent.setup();
+    const validCredentials = createValidCredentials();
 
     render(<Login />);
 
     await act(async () => {
-      await user.type(screen.getByLabelText(/e-mail/i), 'admin@kurtto.dev');
-      await user.type(screen.getByLabelText(/senha/i), 'abc12345');
+      await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
+      await user.type(screen.getByLabelText(/senha/i), validCredentials.password);
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -70,11 +79,12 @@ describe('Login', () => {
 
   it('exibe mensagem clara em erro de autenticação', async () => {
     const user = userEvent.setup();
+    const validCredentials = createValidCredentials();
 
     render(<Login />);
 
     await act(async () => {
-      await user.type(screen.getByLabelText(/e-mail/i), 'admin@kurtto.dev');
+      await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
       await user.type(screen.getByLabelText(/senha/i), '123');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
@@ -86,39 +96,31 @@ describe('Login', () => {
     });
   });
 
-  it('mantem layout estrutural consistente nos breakpoints 1024 e 1920', () => {
-    setViewport(1024);
-    const { container, rerender } = render(<Login />);
+  it.each([1024, 1920])(
+    'mantem layout estrutural consistente para viewport desktop %ipx',
+    (width) => {
+      setViewport(width);
+      const { container } = render(<Login />);
 
-    const sections1024 = container.querySelectorAll('section');
-    const [brandSection1024, formSection1024] = Array.from(sections1024);
-    const button1024 = screen.getByRole('button', { name: /entrar/i });
+      const row = container.querySelector('.row');
+      const sections = container.querySelectorAll('section');
+      const [brandSection, formSection] = Array.from(sections);
 
-    expect(sections1024).toHaveLength(2);
-    expect(window.innerWidth).toBe(1024);
-    expect(brandSection1024).toHaveClass('col-12', 'col-lg-6', 'd-flex', 'align-items-center');
-    expect(formSection1024).toHaveClass(
-      'col-12',
-      'col-lg-6',
-      'd-flex',
-      'align-items-center',
-      'justify-content-center',
-    );
-    expect(button1024).toHaveClass('w-100');
-    expect(screen.getByLabelText(/e-mail/i)).toBeVisible();
-    expect(screen.getByLabelText(/senha/i)).toBeVisible();
-
-    setViewport(1920);
-    rerender(<Login />);
-
-    const sections1920 = container.querySelectorAll('section');
-    const [brandSection1920, formSection1920] = Array.from(sections1920);
-
-    expect(sections1920).toHaveLength(2);
-    expect(window.innerWidth).toBe(1920);
-    expect(brandSection1920).toHaveClass('col-12', 'col-lg-6');
-    expect(formSection1920).toHaveClass('col-12', 'col-lg-6');
-    expect(screen.getByRole('heading', { name: /gerencie seus links com rapidez/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /entrar/i })).toHaveClass('w-100');
-  });
+      expect(window.innerWidth).toBe(width);
+      expect(row).toHaveClass('row', 'g-0', 'min-vh-100');
+      expect(sections).toHaveLength(2);
+      expect(brandSection).toHaveClass('col-12', 'col-lg-6', 'd-flex', 'align-items-center');
+      expect(formSection).toHaveClass(
+        'col-12',
+        'col-lg-6',
+        'd-flex',
+        'align-items-center',
+        'justify-content-center',
+      );
+      expect(screen.getByRole('heading', { name: /gerencie seus links com rapidez/i })).toBeVisible();
+      expect(screen.getByRole('button', { name: /entrar/i })).toHaveClass('btn', 'btn-primary', 'w-100');
+      expect(screen.getByLabelText(/e-mail/i)).toBeVisible();
+      expect(screen.getByLabelText(/senha/i)).toBeVisible();
+    },
+  );
 });
