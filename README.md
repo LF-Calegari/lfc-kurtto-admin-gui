@@ -88,7 +88,9 @@ O workflow `.github/workflows/sonarcloud.yml` envia análise para o SonarCloud e
    - `SONAR_ORGANIZATION` — organization key do SonarCloud (**aceita Variables ou Secrets**).  
    - `SONAR_PROJECT_KEY` — project key do SonarCloud (**aceita Variables ou Secrets**).
 
-Se `SONAR_TOKEN`, `SONAR_ORGANIZATION` ou `SONAR_PROJECT_KEY` estiverem ausentes, o job **falha na primeira etapa** com mensagens indicando o que configurar. O token só é referenciado via `secrets.SONAR_TOKEN`, sem hardcode no repositório.
+Se `SONAR_TOKEN`, `SONAR_ORGANIZATION` ou `SONAR_PROJECT_KEY` estiverem ausentes, o job **falha no passo de validação da configuração do SonarCloud** (logo após o checkout), com mensagens indicando o que configurar. O token só é referenciado via `secrets.SONAR_TOKEN`, sem hardcode no repositório.
+
+**PRs vindos de fork:** em forks, secrets e variables do repositório upstream em geral **não** estão disponíveis para o workflow; nesse caso a validação tende a falhar de forma esperada até haver configuração equivalente no fork ou até o merge no repositório principal.
 
 O escopo de análise e cobertura (LCOV após `npm test -- --coverage`) está em `sonar-project.properties`.
 
