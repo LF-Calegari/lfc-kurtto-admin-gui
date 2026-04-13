@@ -1,6 +1,7 @@
 import { FormEvent, useState } from 'react';
 
 import styles from './Login.module.css';
+import { loginMockCredentials } from './loginMockCredentials';
 
 interface LoginFormState {
   email: string;
@@ -13,8 +14,6 @@ interface LoginValidationErrors {
 }
 
 const AUTH_DELAY_MS = 500;
-const MOCK_USER_EMAIL = 'admin@kurtto.io';
-const MOCK_USER_PASSWORD = 'kurtto123';
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function authenticateMock(formData: LoginFormState): Promise<void> {
@@ -22,7 +21,10 @@ async function authenticateMock(formData: LoginFormState): Promise<void> {
     setTimeout(resolve, AUTH_DELAY_MS);
   });
 
-  if (formData.email !== MOCK_USER_EMAIL || formData.password !== MOCK_USER_PASSWORD) {
+  if (
+    formData.email !== loginMockCredentials.email ||
+    formData.password !== loginMockCredentials.password
+  ) {
     throw new Error('E-mail ou senha inválidos. Verifique seus dados e tente novamente.');
   }
 }
@@ -53,7 +55,7 @@ function Login(): JSX.Element {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
 
     const errors = validateForm(formData);
@@ -66,29 +68,27 @@ function Login(): JSX.Element {
     }
 
     setIsSubmitting(true);
-    void (async () => {
-      try {
-        await authenticateMock(formData);
-        setIsAuthenticated(true);
-      } catch (error) {
-        if (error instanceof Error) {
-          setAuthError(error.message);
-        } else {
-          setAuthError('Não foi possível autenticar no momento. Tente novamente.');
-        }
-      } finally {
-        setIsSubmitting(false);
+    try {
+      await authenticateMock(formData);
+      setIsAuthenticated(true);
+    } catch (error) {
+      if (error instanceof Error) {
+        setAuthError(error.message);
+      } else {
+        setAuthError('Não foi possível autenticar no momento. Tente novamente.');
       }
-    })();
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className={`container-fluid ${styles.wrapper}`}>
+    <div className={`container-fluid p-0 ${styles.wrapper}`}>
       <div className="row g-0 min-vh-100">
         <section className={`col-12 col-lg-6 d-flex align-items-center ${styles.brandSection}`}>
           <div className={`w-100 ${styles.brandContent}`}>
-            <p className={`mb-3 fw-medium text-uppercase ${styles.brandEyebrow}`}>Kurtto Admin</p>
-            <h1 className="display-6 fw-medium mb-3">Gerencie seus links com rapidez</h1>
+            <p className={`mb-3 fw-medium ${styles.brandEyebrow}`}>Kurtto Admin</p>
+            <h1 className="h2 fw-medium mb-3">Gerencie seus links com rapidez</h1>
             <p className="mb-0 text-secondary">
               Centralize operações, acompanhe métricas e mantenha o controle da plataforma em um
               único painel.
