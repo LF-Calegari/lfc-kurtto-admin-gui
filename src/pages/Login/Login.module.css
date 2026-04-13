@@ -1,0 +1,29 @@
+.wrapper {
+  background: radial-gradient(circle at top left, var(--color-blush), var(--color-sand) 45%);
+}
+
+.brandSection {
+  background-color: var(--color-ink);
+  color: var(--color-sand);
+  padding: 48px 40px;
+}
+
+.brandContent {
+  max-width: 480px;
+}
+
+.brandEyebrow {
+  color: var(--color-amber);
+  letter-spacing: 0.12em;
+}
+
+.loginCard {
+  max-width: 480px;
+}
+
+@media (max-width: 991.98px) {
+  .brandSection {
+    min-height: 280px;
+    padding: 32px 24px;
+  }
+}
