@@ -84,9 +84,9 @@ O workflow `.github/workflows/sonarcloud.yml` envia análise para o SonarCloud e
 2. **Secret** (repositório ou organização GitHub)  
    - `SONAR_TOKEN` — token de análise gerado no SonarCloud (nunca commite nem registre em logs).
 
-3. **Variables** (repositório ou organização GitHub)  
-   - `SONAR_ORGANIZATION` — organization key do SonarCloud.  
-   - `SONAR_PROJECT_KEY` — project key do SonarCloud.
+3. **Configuração do projeto SonarCloud** (repositório ou organização GitHub)  
+   - `SONAR_ORGANIZATION` — organization key do SonarCloud (**aceita Variables ou Secrets**).  
+   - `SONAR_PROJECT_KEY` — project key do SonarCloud (**aceita Variables ou Secrets**).
 
 Se `SONAR_TOKEN`, `SONAR_ORGANIZATION` ou `SONAR_PROJECT_KEY` estiverem ausentes, o job **falha na primeira etapa** com mensagens indicando o que configurar. O token só é referenciado via `secrets.SONAR_TOKEN`, sem hardcode no repositório.
 

@@ -14,6 +14,10 @@ jobs:
   sonarqube:
     name: SonarCloud analysis
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION != '' && vars.SONAR_ORGANIZATION || secrets.SONAR_ORGANIZATION }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY != '' && vars.SONAR_PROJECT_KEY || secrets.SONAR_PROJECT_KEY }}
 
     steps:
       - name: Checkout
@@ -22,10 +26,6 @@ jobs:
           fetch-depth: 0
 
       - name: Validate SonarCloud configuration
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
         run: |
           set -eu
           missing=0
@@ -34,11 +34,11 @@ jobs:
             missing=1
           fi
           if [ -z "$SONAR_ORGANIZATION" ]; then
-            echo "::error title=SonarCloud::Configure a variable SONAR_ORGANIZATION em Settings → Secrets and variables → Actions → Variables (Organization key no SonarCloud)."
+            echo "::error title=SonarCloud::Configure SONAR_ORGANIZATION em Settings → Secrets and variables → Actions (Variables ou Secrets)."
             missing=1
           fi
           if [ -z "$SONAR_PROJECT_KEY" ]; then
-            echo "::error title=SonarCloud::Configure a variable SONAR_PROJECT_KEY em Settings → Secrets and variables → Actions → Variables (Project key no SonarCloud)."
+            echo "::error title=SonarCloud::Configure SONAR_PROJECT_KEY em Settings → Secrets and variables → Actions (Variables ou Secrets)."
             missing=1
           fi
           exit "$missing"
@@ -64,9 +64,7 @@ jobs:
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
-            -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
