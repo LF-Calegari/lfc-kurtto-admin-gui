@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-04-12",
+  "policy": {
+    "description": "Exceções temporárias para vulnerabilidades high/critical transitivas da stack CRA.",
+    "owner": "calegariluisfernando",
+    "reviewCadence": "quinzenal"
+  },
+  "exceptions": [
+    {
+      "package": "@svgr/plugin-svgo",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva de react-scripts sem correção semântica menor disponível.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "@svgr/webpack",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva de react-scripts sem correção semântica menor disponível.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "bfj",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva da cadeia de build/test do CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "css-minimizer-webpack-plugin",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva de react-scripts sem atualização compatível em escopo.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "css-select",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva da cadeia svgo via CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "jsonpath",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva da ferramenta de build; sem patch direto neste escopo.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "nth-check",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva da cadeia svgo via CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "react-scripts",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Risco transitivo conhecido do toolchain CRA, mitigado por governança temporal.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "rollup-plugin-terser",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva via workbox no CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "serialize-javascript",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva sem atualização semântica menor disponível no CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "svgo",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva da cadeia de SVG do CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "underscore",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva referenciada por jsonpath.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "workbox-build",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva de PWA/build via CRA.",
+      "tracking": "Issue #1 / PR #2"
+    },
+    {
+      "package": "workbox-webpack-plugin",
+      "severity": "high",
+      "owner": "calegariluisfernando",
+      "expiresAt": "2026-06-30",
+      "reason": "Dependência transitiva de PWA/build via CRA.",
+      "tracking": "Issue #1 / PR #2"
+    }
+  ]
+}
