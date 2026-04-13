@@ -13,7 +13,6 @@ interface LoginValidationErrors {
 }
 
 const AUTH_DELAY_MS = 500;
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOCK_EMAIL = process.env.REACT_APP_LOGIN_MOCK_EMAIL?.trim().toLowerCase();
 const MOCK_PASSWORD_HASH = process.env.REACT_APP_LOGIN_MOCK_PASSWORD_HASH?.trim().toLowerCase();
 
@@ -31,6 +30,26 @@ function hashPassword(value: string): string {
   return Math.abs(hash).toString(16);
 }
 
+function isEmailFormatValid(email: string): boolean {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (normalizedEmail.length === 0 || normalizedEmail.includes(' ')) {
+    return false;
+  }
+
+  const atIndex = normalizedEmail.indexOf('@');
+  if (atIndex <= 0 || atIndex !== normalizedEmail.lastIndexOf('@')) {
+    return false;
+  }
+
+  const domain = normalizedEmail.slice(atIndex + 1);
+  if (domain.length < 3 || domain.startsWith('.') || domain.endsWith('.')) {
+    return false;
+  }
+
+  return domain.includes('.');
+}
+
 function isMockLoginValid(formData: LoginFormState): boolean {
   if (MOCK_EMAIL && MOCK_PASSWORD_HASH) {
     return (
@@ -39,7 +58,7 @@ function isMockLoginValid(formData: LoginFormState): boolean {
     );
   }
 
-  return emailPattern.test(formData.email) && formData.password.trim().length >= 8;
+  return isEmailFormatValid(formData.email) && formData.password.trim().length >= 8;
 }
 
 async function authenticateMock(formData: LoginFormState): Promise<void> {
@@ -57,7 +76,7 @@ function validateForm(formData: LoginFormState): LoginValidationErrors {
 
   if (!formData.email) {
     errors.email = 'Informe o e-mail para entrar.';
-  } else if (!emailPattern.test(formData.email)) {
+  } else if (!isEmailFormatValid(formData.email)) {
     errors.email = 'Informe um e-mail válido.';
   }
 
