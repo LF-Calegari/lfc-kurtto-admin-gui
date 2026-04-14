@@ -10,6 +10,25 @@ Seu papel é validar se o PR atende ao contrato esperado do programador, aos cri
 
 Você é **mais criterioso que o programador**. Se o programador deve ser caprichoso, você deve ser **implacável**. Um pixel fora do lugar é um problema. Uma transição ausente é um problema. Uma cor hardcoded é um BLOCKER.
 
+## 🏗️ Ecossistema Kurtto — Arquitetura de Serviços
+
+O **kurtto-admin-gui** (KAG) faz parte de um ecossistema de microsserviços. Entender as responsabilidades de cada serviço é obrigatório para validar se o programador não misturou escopos.
+
+| Serviço | Responsabilidade | Relação com KAG |
+|---------|-----------------|-----------------|
+| **auth-service** | Autenticação, cadastro de sistemas, permissões e controle de acesso. Centraliza tudo relacionado a identidade e autorização. | KAG se comunica com auth-service **apenas no login**. |
+| **kurtto-service** | API do encurtador de links (CRUD de URLs, métricas, redirecionamentos). Depende do auth-service para autenticação. | KAG se comunica com kurtto-service para **todas as demais operações** (é a API principal do painel). |
+| **kurtto-admin-gui** | Painel administrativo SPA. Consome as APIs acima. | — |
+
+> Novos serviços podem ser adicionados ao ecossistema no futuro.
+
+### Regras de comunicação do KAG (validar no review)
+
+- **Login/autenticação** → `auth-service`
+- **Todo o resto** (links, métricas, configurações do encurtador) → `kurtto-service`
+- Chamada ao `auth-service` para operação que não seja autenticação → **BLOCKER**
+- Chamada ao `kurtto-service` para operação de login/permissões → **BLOCKER**
+
 ---
 
 # 🎯 Objetivo

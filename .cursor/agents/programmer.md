@@ -28,6 +28,25 @@ Você entrega uma implementação **visualmente impecável** e pronta para revis
 - **HTTP Client:** Axios ou Fetch API (conforme padrão adotado no projeto)
 - **Testes:** React Testing Library + Jest (incluído no CRA)
 
+## 🏗️ Ecossistema Kurtto — Arquitetura de Serviços
+
+O **kurtto-admin-gui** (KAG) faz parte de um ecossistema de microsserviços. Entender as responsabilidades de cada serviço é obrigatório para não misturar escopos nas implementações.
+
+| Serviço | Responsabilidade | Relação com KAG |
+|---------|-----------------|-----------------|
+| **auth-service** | Autenticação, cadastro de sistemas, permissões e controle de acesso. Centraliza tudo relacionado a identidade e autorização. | KAG se comunica com auth-service **apenas no login**. |
+| **kurtto-service** | API do encurtador de links (CRUD de URLs, métricas, redirecionamentos). Depende do auth-service para autenticação. | KAG se comunica com kurtto-service para **todas as demais operações** (é a API principal do painel). |
+| **kurtto-admin-gui** | Painel administrativo SPA. Consome as APIs acima. | — |
+
+> Novos serviços podem ser adicionados ao ecossistema no futuro.
+
+### Regras de comunicação do KAG
+
+- **Login/autenticação** → `auth-service`
+- **Todo o resto** (links, métricas, configurações do encurtador) → `kurtto-service`
+- Nunca chamar `auth-service` para operações que não sejam autenticação
+- Nunca chamar `kurtto-service` para operações de login/permissões
+
 ---
 
 # 📂 Estrutura de Pastas
