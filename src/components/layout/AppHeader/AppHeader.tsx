@@ -52,11 +52,13 @@ export function AppHeader(): JSX.Element {
                 disabled={isBusy}
               >
                 {isBusy && (
-                  <span
-                    className="spinner-border spinner-border-sm me-2"
-                    role="status"
-                    aria-hidden="true"
-                  />
+                  <output
+                    className="spinner-border spinner-border-sm me-2 d-inline-block"
+                    aria-live="polite"
+                    aria-label="Encerrando sessão"
+                  >
+                    <span className="visually-hidden">Encerrando sessão</span>
+                  </output>
                 )}
                 Sair
               </button>

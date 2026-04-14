@@ -46,10 +46,10 @@ function clearStoredSession(): void {
 }
 
 interface AuthProviderProps {
-  children: ReactNode;
+  readonly children: ReactNode;
 }
 
-export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
+export function AuthProvider({ children }: Readonly<AuthProviderProps>): JSX.Element {
   const navigate = useNavigate();
   const initialToken = readStoredToken();
   const [user, setUser] = useState<AuthUser | null>(null);

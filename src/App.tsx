@@ -7,17 +7,8 @@ import Home from './pages/Home/Home';
 import { LoginRoute } from './routes/LoginRoute';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
-function RootRedirect(): JSX.Element {
-  const { user, isBootstrapping } = useAuth();
-
-  if (isBootstrapping) {
-    return <SessionBootstrapSpinner />;
-  }
-
-  return <Navigate to={user ? ROUTES.HOME : ROUTES.LOGIN} replace />;
-}
-
-function CatchAllRedirect(): JSX.Element {
+/** Redireciona conforme sessão (raiz e rotas não mapeadas usam a mesma lógica). */
+function SessionAwareRedirect(): JSX.Element {
   const { user, isBootstrapping } = useAuth();
 
   if (isBootstrapping) {
@@ -34,8 +25,8 @@ function AppRoutes(): JSX.Element {
       <Route element={<ProtectedRoute />}>
         <Route path={ROUTES.HOME} element={<Home />} />
       </Route>
-      <Route path="/" element={<RootRedirect />} />
-      <Route path="*" element={<CatchAllRedirect />} />
+      <Route path="/" element={<SessionAwareRedirect />} />
+      <Route path="*" element={<SessionAwareRedirect />} />
     </Routes>
   );
 }

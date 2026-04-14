@@ -1,6 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react';
 
 import App from './App';
+import { AUTH_SESSION_STORAGE_KEY } from './constants/storageKeys';
+
+function jsonResponse(body: unknown, status = 200): Response {
+  const ok = status >= 200 && status < 300;
+  const payload = JSON.stringify(body);
+  return {
+    ok,
+    status,
+    text: async () => payload,
+  } as Response;
+}
 
 describe('App', () => {
   const originalFetch = global.fetch;
@@ -54,6 +65,26 @@ describe('App', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /entrar no kurtto/i })).toBeInTheDocument();
+    });
+  });
+
+  it('redireciona rota raiz para Home quando já autenticado', async () => {
+    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'jwt-sessao' }));
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({
+        id: '44444444-4444-4444-4444-444444444444',
+        name: 'Sessão',
+        email: 'sessao@test.com',
+        identity: 1,
+        permissions: [],
+      }),
+    );
+
+    window.history.pushState({}, '', '/');
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/em construção/i)).toBeInTheDocument();
     });
   });
 });

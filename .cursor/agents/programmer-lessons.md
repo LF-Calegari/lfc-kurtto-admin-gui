@@ -8,3 +8,5 @@ Erros que geraram BLOCKER em reviews anteriores. **Nunca repita esses padrões.*
 ---
 
 <!-- Novas lições devem ser adicionadas abaixo desta linha -->
+
+- [PR #15] Iniciais no avatar com `font-weight: 600` — o guia Kurtto restringe Inter a pesos 400 e 500; usar `500` para destaque em monogramas/avatar.

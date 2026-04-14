@@ -178,8 +178,11 @@ function Login(): JSX.Element {
                   {isSubmitting && (
                     <output
                       className="spinner-border spinner-border-sm me-2 d-inline-block"
-                      aria-hidden="true"
-                    />
+                      aria-live="polite"
+                      aria-label="Entrando"
+                    >
+                      <span className="visually-hidden">Entrando</span>
+                    </output>
                   )}
                   {isSubmitting ? 'Entrando...' : 'Entrar'}
                 </button>
