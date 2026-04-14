@@ -13,18 +13,41 @@ interface LoginValidationErrors {
 }
 
 const AUTH_DELAY_MS = 500;
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOCK_EMAIL = process.env.REACT_APP_LOGIN_MOCK_EMAIL?.trim().toLowerCase();
 const MOCK_PASSWORD_HASH = process.env.REACT_APP_LOGIN_MOCK_PASSWORD_HASH?.trim().toLowerCase();
 
 function hashPassword(value: string): string {
   let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(index);
-    hash |= 0;
+  for (let index = 0; index < value.length; ) {
+    const codePoint = value.codePointAt(index);
+    if (codePoint === undefined) {
+      break;
+    }
+    hash = Math.trunc((hash << 5) - hash + codePoint);
+    index += codePoint > 0xffff ? 2 : 1;
   }
 
   return Math.abs(hash).toString(16);
+}
+
+function isEmailFormatValid(email: string): boolean {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (normalizedEmail.length === 0 || normalizedEmail.includes(' ')) {
+    return false;
+  }
+
+  const atIndex = normalizedEmail.indexOf('@');
+  if (atIndex <= 0 || atIndex !== normalizedEmail.lastIndexOf('@')) {
+    return false;
+  }
+
+  const domain = normalizedEmail.slice(atIndex + 1);
+  if (domain.length < 3 || domain.startsWith('.') || domain.endsWith('.')) {
+    return false;
+  }
+
+  return domain.includes('.');
 }
 
 function isMockLoginValid(formData: LoginFormState): boolean {
@@ -35,7 +58,7 @@ function isMockLoginValid(formData: LoginFormState): boolean {
     );
   }
 
-  return emailPattern.test(formData.email) && formData.password.trim().length >= 8;
+  return isEmailFormatValid(formData.email) && formData.password.trim().length >= 8;
 }
 
 async function authenticateMock(formData: LoginFormState): Promise<void> {
@@ -53,7 +76,7 @@ function validateForm(formData: LoginFormState): LoginValidationErrors {
 
   if (!formData.email) {
     errors.email = 'Informe o e-mail para entrar.';
-  } else if (!emailPattern.test(formData.email)) {
+  } else if (!isEmailFormatValid(formData.email)) {
     errors.email = 'Informe um e-mail válido.';
   }
 
@@ -128,9 +151,9 @@ function Login(): JSX.Element {
               )}
 
               {isAuthenticated && (
-                <div className="alert alert-success" role="status">
+                <output className="alert alert-success d-block" aria-live="polite">
                   Login realizado com sucesso.
-                </div>
+                </output>
               )}
 
               <form noValidate onSubmit={handleSubmit}>
@@ -190,9 +213,8 @@ function Login(): JSX.Element {
 
                 <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
                   {isSubmitting && (
-                    <span
-                      className="spinner-border spinner-border-sm me-2"
-                      role="status"
+                    <output
+                      className="spinner-border spinner-border-sm me-2 d-inline-block"
                       aria-hidden="true"
                     />
                   )}
