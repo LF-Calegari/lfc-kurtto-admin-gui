@@ -1,0 +1,38 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-sand);
+}
+
+.mainColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.main {
+  flex: 1;
+  padding: 24px;
+}
+
+.placeholderCard {
+  border-radius: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  transition: box-shadow 150ms ease;
+}
+
+.placeholderTitle {
+  color: var(--color-ink);
+}
+
+@media (max-width: 991.98px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .main {
+    padding: 16px;
+  }
+}

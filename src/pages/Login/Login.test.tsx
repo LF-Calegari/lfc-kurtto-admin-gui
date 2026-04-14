@@ -1,10 +1,51 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { act } from 'react';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+
+import { AuthProvider } from '../../contexts/AuthContext';
+import Home from '../Home/Home';
 
 import Login from './Login';
 
+function jsonResponse(body: unknown, status = 200): Response {
+  const ok = status >= 200 && status < 300;
+  const payload = JSON.stringify(body);
+  return {
+    ok,
+    status,
+    text: async () => payload,
+  } as Response;
+}
+
+const routerFuture = { v7_startTransition: true, v7_relativeSplatPath: true } as const;
+
+function renderLoginOnly(): void {
+  render(
+    <MemoryRouter future={routerFuture} initialEntries={['/login']}>
+      <AuthProvider>
+        <Login />
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+}
+
+function renderLoginWithHomeRoute(): void {
+  render(
+    <MemoryRouter future={routerFuture} initialEntries={['/login']}>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/home" element={<Home />} />
+        </Routes>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+}
+
 describe('Login', () => {
+  const originalFetch = global.fetch;
+
   const createValidCredentials = (): { email: string; password: string } => {
     const timestamp = Date.now();
     return {
@@ -22,8 +63,17 @@ describe('Login', () => {
     window.dispatchEvent(new Event('resize'));
   };
 
+  beforeEach(() => {
+    localStorage.clear();
+    global.fetch = originalFetch;
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
   it('renderiza estrutura principal da tela', () => {
-    render(<Login />);
+    renderLoginOnly();
 
     expect(screen.getByRole('heading', { name: /entrar no kurtto/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/e-mail/i)).toBeInTheDocument();
@@ -34,7 +84,7 @@ describe('Login', () => {
   it('valida envio com campos vazios', async () => {
     const user = userEvent.setup();
 
-    render(<Login />);
+    renderLoginOnly();
 
     await act(async () => {
       await user.click(screen.getByRole('button', { name: /entrar/i }));
@@ -47,22 +97,36 @@ describe('Login', () => {
   it('valida formato de e-mail inválido', async () => {
     const user = userEvent.setup();
 
-    render(<Login />);
+    renderLoginOnly();
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), 'email-invalido');
-      await user.type(screen.getByLabelText(/senha/i), 'senha-curta');
+      await user.type(screen.getByLabelText(/senha/i), 'senha-qualquer');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
     expect(screen.getByText(/informe um e-mail válido/i)).toBeInTheDocument();
   });
 
-  it('exibe estado de sucesso ao autenticar com credenciais válidas', async () => {
+  it('redireciona para Home após login bem-sucedido', async () => {
     const user = userEvent.setup();
     const validCredentials = createValidCredentials();
 
-    render(<Login />);
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ token: 'jwt-login' }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'Usuário QA',
+          email: validCredentials.email,
+          identity: 1,
+          permissions: [],
+        }),
+      );
+    global.fetch = fetchMock;
+
+    renderLoginWithHomeRoute();
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
@@ -70,31 +134,31 @@ describe('Login', () => {
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
-    expect(screen.getByRole('button', { name: /entrando/i })).toBeDisabled();
-
     await waitFor(() => {
-      const successRegion = screen.getByText(/login realizado com sucesso/i).closest('output');
-      expect(successRegion).toBeInTheDocument();
-      expect(successRegion).toHaveAttribute('aria-live', 'polite');
+      expect(screen.getByText(/em construção/i)).toBeInTheDocument();
     });
+
+    expect(fetchMock).toHaveBeenCalled();
   });
 
   it('exibe mensagem clara em erro de autenticação', async () => {
     const user = userEvent.setup();
     const validCredentials = createValidCredentials();
 
-    render(<Login />);
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'Credenciais inválidas.' }, 401),
+    );
+
+    renderLoginOnly();
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
-      await user.type(screen.getByLabelText(/senha/i), '123');
+      await user.type(screen.getByLabelText(/senha/i), 'wrong-pass');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent(
-        /e-mail ou senha inválidos\. verifique seus dados e tente novamente/i,
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent(/credenciais inválidas/i);
     });
   });
 
@@ -102,7 +166,13 @@ describe('Login', () => {
     'mantem layout estrutural consistente para viewport desktop %ipx',
     (width) => {
       setViewport(width);
-      const { container } = render(<Login />);
+      const { container } = render(
+        <MemoryRouter future={routerFuture}>
+          <AuthProvider>
+            <Login />
+          </AuthProvider>
+        </MemoryRouter>,
+      );
 
       const row = container.querySelector('.row');
       const sections = container.querySelectorAll('section');

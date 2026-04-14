@@ -1,4 +1,9 @@
 import { FormEvent, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+import { ROUTES } from '../../constants/routes';
+import { useAuth } from '../../contexts/AuthContext';
+import { AuthApiError } from '../../services/authService';
 
 import styles from './Login.module.css';
 
@@ -10,24 +15,6 @@ interface LoginFormState {
 interface LoginValidationErrors {
   email?: string;
   password?: string;
-}
-
-const AUTH_DELAY_MS = 500;
-const MOCK_EMAIL = process.env.REACT_APP_LOGIN_MOCK_EMAIL?.trim().toLowerCase();
-const MOCK_PASSWORD_HASH = process.env.REACT_APP_LOGIN_MOCK_PASSWORD_HASH?.trim().toLowerCase();
-
-function hashPassword(value: string): string {
-  let hash = 0;
-  for (let index = 0; index < value.length; ) {
-    const codePoint = value.codePointAt(index);
-    if (codePoint === undefined) {
-      break;
-    }
-    hash = Math.trunc((hash << 5) - hash + codePoint);
-    index += codePoint > 0xffff ? 2 : 1;
-  }
-
-  return Math.abs(hash).toString(16);
 }
 
 function isEmailFormatValid(email: string): boolean {
@@ -50,27 +37,6 @@ function isEmailFormatValid(email: string): boolean {
   return domain.includes('.');
 }
 
-function isMockLoginValid(formData: LoginFormState): boolean {
-  if (MOCK_EMAIL && MOCK_PASSWORD_HASH) {
-    return (
-      formData.email.trim().toLowerCase() === MOCK_EMAIL &&
-      hashPassword(formData.password) === MOCK_PASSWORD_HASH
-    );
-  }
-
-  return isEmailFormatValid(formData.email) && formData.password.trim().length >= 8;
-}
-
-async function authenticateMock(formData: LoginFormState): Promise<void> {
-  await new Promise((resolve) => {
-    setTimeout(resolve, AUTH_DELAY_MS);
-  });
-
-  if (!isMockLoginValid(formData)) {
-    throw new Error('E-mail ou senha inválidos. Verifique seus dados e tente novamente.');
-  }
-}
-
 function validateForm(formData: LoginFormState): LoginValidationErrors {
   const errors: LoginValidationErrors = {};
 
@@ -88,6 +54,8 @@ function validateForm(formData: LoginFormState): LoginValidationErrors {
 }
 
 function Login(): JSX.Element {
+  const { login } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<LoginFormState>({
     email: '',
     password: '',
@@ -95,7 +63,6 @@ function Login(): JSX.Element {
   const [validationErrors, setValidationErrors] = useState<LoginValidationErrors>({});
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -103,7 +70,6 @@ function Login(): JSX.Element {
     const errors = validateForm(formData);
     setValidationErrors(errors);
     setAuthError('');
-    setIsAuthenticated(false);
 
     if (Object.keys(errors).length > 0) {
       return;
@@ -111,10 +77,12 @@ function Login(): JSX.Element {
 
     setIsSubmitting(true);
     try {
-      await authenticateMock(formData);
-      setIsAuthenticated(true);
+      await login(formData.email.trim(), formData.password);
+      navigate(ROUTES.HOME, { replace: true });
     } catch (error) {
-      if (error instanceof Error) {
+      if (error instanceof AuthApiError) {
+        setAuthError(error.message);
+      } else if (error instanceof Error) {
         setAuthError(error.message);
       } else {
         setAuthError('Não foi possível autenticar no momento. Tente novamente.');
@@ -148,12 +116,6 @@ function Login(): JSX.Element {
                 <div className="alert alert-danger" role="alert">
                   {authError}
                 </div>
-              )}
-
-              {isAuthenticated && (
-                <output className="alert alert-success d-block" aria-live="polite">
-                  Login realizado com sucesso.
-                </output>
               )}
 
               <form noValidate onSubmit={handleSubmit}>
@@ -193,6 +155,7 @@ function Login(): JSX.Element {
                     name="password"
                     type="password"
                     autoComplete="current-password"
+                    maxLength={60}
                     className={`form-control ${validationErrors.password ? 'is-invalid' : ''}`}
                     value={formData.password}
                     onChange={(event) => {
