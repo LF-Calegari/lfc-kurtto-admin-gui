@@ -21,6 +21,15 @@
   max-width: 480px;
 }
 
+/* Campo + toggle com a mesma altura (input não estica no flex como block). */
+.passwordInputGroup {
+  align-items: stretch;
+}
+
+.passwordInputGroup .form-control {
+  min-height: 44px;
+}
+
 .passwordToggle {
   --bs-btn-color: var(--color-stone);
   --bs-btn-border-color: var(--color-border-subtle);
@@ -28,8 +37,12 @@
   --bs-btn-hover-bg: var(--color-sand);
   --bs-btn-hover-border-color: var(--color-ash);
   --bs-btn-focus-shadow-rgb: var(--bs-primary-rgb);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
   min-width: 44px;
-  min-height: 44px;
+  min-height: 0;
   padding-inline: 12px;
   transition:
     color 150ms ease,

@@ -191,7 +191,9 @@ function Login(): JSX.Element {
                     Senha
                   </label>
                   <div
-                    className={`input-group ${validationErrors.password ? 'has-validation' : ''}`}
+                    className={`input-group ${styles.passwordInputGroup} ${
+                      validationErrors.password ? 'has-validation' : ''
+                    }`}
                   >
                     <input
                       id="password"
