@@ -4,6 +4,17 @@ import type { CreateLinkPayload, LinkItem, ListLinksResponse, UpdateLinkPayload 
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
+/** Deve coincidir com o prefixo versionado da kurtto-api (ex.: GET/POST /api/v1/urls). */
+const KURTTO_API_V1_BASE = '/api/v1';
+
+function urlsCollectionPath(): string {
+  return `${KURTTO_API_V1_BASE}/urls`;
+}
+
+function urlItemPath(shortCode: string): string {
+  return `${KURTTO_API_V1_BASE}/urls/${encodeURIComponent(shortCode)}`;
+}
+
 export class LinkApiError extends Error {
   constructor(
     message: string,
@@ -57,17 +68,63 @@ async function parseJsonBody(response: Response): Promise<unknown> {
   }
 }
 
-function readMessageFromBody(body: unknown): string | null {
-  if (body && typeof body === 'object') {
-    const record = body as Record<string, unknown>;
-    if (typeof record.message === 'string' && record.message.trim().length > 0) {
-      return record.message;
+function firstNonEmptyTrimmedString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue;
     }
-    if (typeof record.title === 'string' && record.title.trim().length > 0) {
-      return record.title;
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
     }
   }
   return null;
+}
+
+function collectDetailMessages(details: unknown[]): string[] {
+  const detailMessages: string[] = [];
+  for (const item of details) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const d = item as Record<string, unknown>;
+    if (typeof d.message === 'string' && d.message.trim().length > 0) {
+      detailMessages.push(d.message.trim());
+    }
+  }
+  return detailMessages;
+}
+
+function messageFromErrorAndDetails(record: Record<string, unknown>): string | null {
+  if (typeof record.error !== 'string') {
+    return null;
+  }
+  const err = record.error.trim();
+  if (err.length === 0) {
+    return null;
+  }
+  if (!Array.isArray(record.details)) {
+    return err;
+  }
+  const detailMessages = collectDetailMessages(record.details);
+  if (detailMessages.length === 0) {
+    return err;
+  }
+  return `${err}: ${detailMessages.join(' ')}`.slice(0, 600);
+}
+
+function extractUserFacingErrorMessage(body: unknown): string | null {
+  if (!body || typeof body !== 'object') {
+    return null;
+  }
+  const record = body as Record<string, unknown>;
+
+  const fromMessageOrTitle = firstNonEmptyTrimmedString([record.message, record.title]);
+  if (fromMessageOrTitle) {
+    return fromMessageOrTitle;
+  }
+
+  return messageFromErrorAndDetails(record);
 }
 
 function mapApiError(responseStatus: number, body: unknown): LinkApiError {
@@ -80,7 +137,21 @@ function mapApiError(responseStatus: number, body: unknown): LinkApiError {
   if (responseStatus >= 500) {
     return new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', responseStatus);
   }
-  const messageFromApi = readMessageFromBody(body);
+  if (responseStatus === 401) {
+    const messageFromApi = extractUserFacingErrorMessage(body);
+    return new LinkApiError(
+      messageFromApi ?? 'Sessão expirada ou credenciais inválidas. Faça login novamente.',
+      responseStatus,
+    );
+  }
+  if (responseStatus === 403) {
+    const messageFromApi = extractUserFacingErrorMessage(body);
+    return new LinkApiError(
+      messageFromApi ?? 'Você não tem permissão para esta operação.',
+      responseStatus,
+    );
+  }
+  const messageFromApi = extractUserFacingErrorMessage(body);
   if (messageFromApi) {
     return new LinkApiError(messageFromApi, responseStatus);
   }
@@ -142,12 +213,15 @@ async function request(path: string, init: RequestInit): Promise<Response> {
       },
     });
   } catch {
-    throw new LinkApiError('Não foi possível concluir a operação. Tente novamente.', 0);
+    throw new LinkApiError(
+      'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.',
+      0,
+    );
   }
 }
 
 export async function listLinks(): Promise<ListLinksResponse> {
-  const response = await request('/urls', { method: 'GET' });
+  const response = await request(urlsCollectionPath(), { method: 'GET' });
   const body = await parseJsonBody(response);
   if (!response.ok) {
     throw mapApiError(response.status, body);
@@ -156,7 +230,7 @@ export async function listLinks(): Promise<ListLinksResponse> {
 }
 
 export async function createLink(payload: CreateLinkPayload): Promise<LinkItem> {
-  const response = await request('/urls', {
+  const response = await request(urlsCollectionPath(), {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -168,7 +242,7 @@ export async function createLink(payload: CreateLinkPayload): Promise<LinkItem> 
 }
 
 export async function updateLink(code: string, payload: UpdateLinkPayload): Promise<LinkItem> {
-  const response = await request(`/urls/${encodeURIComponent(code)}`, {
+  const response = await request(urlItemPath(code), {
     method: 'PATCH',
     body: JSON.stringify(payload),
   });
@@ -180,7 +254,7 @@ export async function updateLink(code: string, payload: UpdateLinkPayload): Prom
 }
 
 export async function deleteLink(code: string): Promise<void> {
-  const response = await request(`/urls/${encodeURIComponent(code)}`, {
+  const response = await request(urlItemPath(code), {
     method: 'DELETE',
   });
   if (!response.ok) {
