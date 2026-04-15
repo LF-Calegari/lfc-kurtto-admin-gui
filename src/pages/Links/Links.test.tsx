@@ -345,4 +345,59 @@ describe('Links', () => {
     });
     expect(screen.getByRole('heading', { name: /cadastrar link/i })).toBeInTheDocument();
   });
+
+  it('filtra a tabela localmente e permite limpar busca sem nova chamada à API', async () => {
+    const user = userEvent.setup();
+    mockedListLinks.mockResolvedValue({
+      data: [
+        {
+          id: '1',
+          originalUrl: 'https://alpha.com',
+          shortCode: 'alpha1',
+          shortUrl: 'https://k.tt/alpha1',
+          clicks: 1,
+          isActive: true,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: null,
+        },
+        {
+          id: '2',
+          originalUrl: 'https://beta.com',
+          shortCode: 'beta99',
+          shortUrl: 'https://k.tt/beta99',
+          clicks: 0,
+          isActive: true,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: null,
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://alpha.com');
+    expect(screen.getByText('https://beta.com')).toBeInTheDocument();
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+
+    const searchInput = screen.getByRole('searchbox');
+    await user.type(searchInput, 'beta');
+    expect(screen.queryByText('https://alpha.com')).not.toBeInTheDocument();
+    expect(screen.getByText('https://beta.com')).toBeInTheDocument();
+
+    await user.clear(searchInput);
+    await user.type(searchInput, 'sem-resultado-xyz');
+    expect(await screen.findByText(/nenhum link corresponde à busca/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /limpar busca/i }));
+    expect(searchInput).toHaveValue('');
+    expect(await screen.findByText('https://alpha.com')).toBeInTheDocument();
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+  });
 });
