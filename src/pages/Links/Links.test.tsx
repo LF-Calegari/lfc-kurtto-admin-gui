@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
-import { createLink, deleteLink, listLinks, updateLink } from '../../services/linkService';
+import { createLink, deleteLink, LinkApiError, listLinks, updateLink } from '../../services/linkService';
 
 import Links from './Links';
 
@@ -187,5 +187,162 @@ describe('Links', () => {
     expect(
       await screen.findByText('Não foi possível concluir a operação. Tente novamente.'),
     ).toBeInTheDocument();
+  });
+
+  it('rejeita URL com protocolo diferente de http(s)', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.type(screen.getByLabelText(/url original/i), 'ftp://files.example/resource');
+    await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
+
+    expect(await screen.findByText('Informe uma URL válida.')).toBeInTheDocument();
+    expect(mockedCreateLink).not.toHaveBeenCalled();
+  });
+
+  it('rejeita URL acima do limite de caracteres', async () => {
+    const user = userEvent.setup();
+    const longUrl = `https://example.com/${'a'.repeat(2040)}`;
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    const urlInput = screen.getByLabelText(/url original/i);
+    fireEvent.change(urlInput, { target: { value: longUrl } });
+    await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Revise os campos obrigatórios antes de continuar.');
+    expect(mockedCreateLink).not.toHaveBeenCalled();
+  });
+
+  it('rejeita código curto com formato inválido', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.type(screen.getByLabelText(/url original/i), 'https://novo.com');
+    await user.type(screen.getByLabelText(/código curto/i), 'ab');
+    await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Revise os campos obrigatórios antes de continuar.');
+    expect(mockedCreateLink).not.toHaveBeenCalled();
+  });
+
+  it('exibe erro retornado pela API ao cadastrar', async () => {
+    const user = userEvent.setup();
+    mockedCreateLink.mockImplementationOnce(() =>
+      Promise.reject(new LinkApiError('Já existe um link com estes dados.', 409)),
+    );
+
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.type(screen.getByLabelText(/url original/i), 'https://duplicado.com');
+    await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Já existe um link com estes dados.');
+  });
+
+  it('exibe mensagem genérica quando ocorre erro inesperado ao salvar', async () => {
+    const user = userEvent.setup();
+    mockedCreateLink.mockImplementationOnce(() => Promise.reject(new Error('falha genérica')));
+
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.type(screen.getByLabelText(/url original/i), 'https://novo.com');
+    await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('falha genérica');
+  });
+
+  it('cancela edição e restaura o estado inicial', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    expect(screen.getByRole('heading', { name: /editar link/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /cancelar edição/i }));
+
+    expect(screen.getByRole('heading', { name: /cadastrar link/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/url original/i)).toHaveValue('');
+  });
+
+  it('não chama exclusão quando o usuário cancela a confirmação', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(window, 'confirm').mockReturnValue(false);
+
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    expect(mockedDeleteLink).not.toHaveBeenCalled();
+  });
+
+  it('exibe erro ao falhar a exclusão', async () => {
+    const user = userEvent.setup();
+    mockedDeleteLink.mockRejectedValueOnce(new LinkApiError('Link não encontrado para esta operação.', 404));
+
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    expect(await screen.findByText('Link não encontrado para esta operação.')).toBeInTheDocument();
+  });
+
+  it('reseta edição ao excluir o link em edição', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Links />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /editar/i }));
+    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+
+    await waitFor(() => {
+      expect(mockedDeleteLink).toHaveBeenCalledWith('abc123');
+    });
+    expect(screen.getByRole('heading', { name: /cadastrar link/i })).toBeInTheDocument();
   });
 });
