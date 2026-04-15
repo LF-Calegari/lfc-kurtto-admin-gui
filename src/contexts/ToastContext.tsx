@@ -1,0 +1,124 @@
+/**
+ * Sistema global de alertas/toasts (Bootstrap `alert`), com auto-fechamento configurável.
+ *
+ * **Inventário / depreciação:** mensagens de sucesso e erro que antes ficavam inline no
+ * conteúdo principal (por exemplo em `Links.tsx` com `alert` no `<main>`) foram migradas
+ * para este mecanismo. Novas telas devem usar `useToast().showToast(...)` em vez de
+ * duplicar blocos `alert` locais.
+ *
+ * **Uso mínimo:**
+ * ```tsx
+ * const { showToast } = useToast();
+ * showToast({ variant: 'success', message: 'Salvo.', durationMs: 5000 });
+ * showToast({ variant: 'error', message: 'Falhou.' }); // duração padrão 5s
+ * ```
+ *
+ * O `ToastProvider` envolve a árvore em `App.tsx`; o viewport fica fixo abaixo do header
+ * (desktop: canto direito; mobile: centralizado).
+ */
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+
+import { GlobalToastRegion } from '../components/ui/GlobalToastRegion/GlobalToastRegion';
+import { DEFAULT_TOAST_DURATION_MS } from '../constants/toast';
+
+import type { ShowToastOptions, ToastRecord } from '../types/toast';
+
+interface ToastContextValue {
+  showToast: (options: ShowToastOptions) => string;
+  dismissToast: (id: string) => void;
+}
+
+const ToastContext = createContext<ToastContextValue | undefined>(undefined);
+
+function createToastId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+interface ToastProviderProps {
+  readonly children: ReactNode;
+}
+
+export function ToastProvider({ children }: Readonly<ToastProviderProps>): JSX.Element {
+  const [toasts, setToasts] = useState<ToastRecord[]>([]);
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  const clearTimer = useCallback((id: string) => {
+    const handle = timersRef.current.get(id);
+    if (handle !== undefined) {
+      clearTimeout(handle);
+      timersRef.current.delete(id);
+    }
+  }, []);
+
+  const dismissToast = useCallback((id: string) => {
+    clearTimer(id);
+    setToasts((previous) => previous.filter((toast) => toast.id !== id));
+  }, [clearTimer]);
+
+  const showToast = useCallback(
+    (options: ShowToastOptions): string => {
+      const id = createToastId();
+      const durationMs = options.durationMs ?? DEFAULT_TOAST_DURATION_MS;
+      const record: ToastRecord = {
+        id,
+        message: options.message,
+        variant: options.variant,
+        durationMs,
+      };
+      setToasts((previous) => [record, ...previous]);
+
+      if (durationMs > 0) {
+        const handle = globalThis.setTimeout(() => {
+          dismissToast(id);
+        }, durationMs);
+        timersRef.current.set(id, handle);
+      }
+
+      return id;
+    },
+    [dismissToast],
+  );
+
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((handle) => {
+        clearTimeout(handle);
+      });
+      timers.clear();
+    };
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      showToast,
+      dismissToast,
+    }),
+    [dismissToast, showToast],
+  );
+
+  return (
+    <ToastContext.Provider value={value}>
+      {children}
+      <GlobalToastRegion toasts={toasts} onDismiss={dismissToast} />
+    </ToastContext.Provider>
+  );
+}
+
+export function useToast(): ToastContextValue {
+  const context = useContext(ToastContext);
+  if (context === undefined) {
+    throw new Error('useToast deve ser usado dentro de ToastProvider.');
+  }
+  return context;
+}

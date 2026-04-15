@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
+import { ToastProvider } from '../../contexts/ToastContext';
 import { createLink, deleteLink, LinkApiError, listLinks, updateLink } from '../../services/linkService';
 
 import Links from './Links';
@@ -44,6 +45,16 @@ const mockedListLinks = listLinks as jest.MockedFunction<typeof listLinks>;
 const mockedCreateLink = createLink as jest.MockedFunction<typeof createLink>;
 const mockedUpdateLink = updateLink as jest.MockedFunction<typeof updateLink>;
 const mockedDeleteLink = deleteLink as jest.MockedFunction<typeof deleteLink>;
+
+function renderLinks(): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter>
+      <ToastProvider>
+        <Links />
+      </ToastProvider>
+    </MemoryRouter>,
+  );
+}
 
 describe('Links', () => {
   beforeEach(() => {
@@ -98,11 +109,7 @@ describe('Links', () => {
   });
 
   it('lista links ao abrir a página', async () => {
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     expect(await screen.findByText('https://example.com')).toBeInTheDocument();
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
@@ -110,11 +117,7 @@ describe('Links', () => {
 
   it('bloqueia envio inválido e exibe mensagem', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /cadastrar link/i }));
@@ -127,11 +130,7 @@ describe('Links', () => {
 
   it('cadastra link válido e exibe sucesso', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.type(screen.getByLabelText(/url original/i), 'https://novo.com');
@@ -149,11 +148,7 @@ describe('Links', () => {
 
   it('edita e exclui com atualização da lista', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /editar/i }));
@@ -178,11 +173,7 @@ describe('Links', () => {
   it('exibe erro de indisponibilidade quando listagem falha por timeout/rede', async () => {
     mockedListLinks.mockRejectedValueOnce(new Error('Não foi possível concluir a operação. Tente novamente.'));
 
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     expect(
       await screen.findByText('Não foi possível concluir a operação. Tente novamente.'),
@@ -191,11 +182,7 @@ describe('Links', () => {
 
   it('rejeita URL com protocolo diferente de http(s)', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.type(screen.getByLabelText(/url original/i), 'ftp://files.example/resource');
@@ -208,11 +195,7 @@ describe('Links', () => {
   it('rejeita URL acima do limite de caracteres', async () => {
     const user = userEvent.setup();
     const longUrl = `https://example.com/${'a'.repeat(2040)}`;
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     const urlInput = screen.getByLabelText(/url original/i);
@@ -226,11 +209,7 @@ describe('Links', () => {
 
   it('rejeita código curto com formato inválido', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.type(screen.getByLabelText(/url original/i), 'https://novo.com');
@@ -248,11 +227,7 @@ describe('Links', () => {
       Promise.reject(new LinkApiError('Já existe um link com estes dados.', 409)),
     );
 
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.type(screen.getByLabelText(/url original/i), 'https://duplicado.com');
@@ -265,11 +240,7 @@ describe('Links', () => {
     const user = userEvent.setup();
     mockedCreateLink.mockImplementationOnce(() => Promise.reject(new Error('falha genérica')));
 
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.type(screen.getByLabelText(/url original/i), 'https://novo.com');
@@ -280,11 +251,7 @@ describe('Links', () => {
 
   it('cancela edição e restaura o estado inicial', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /editar/i }));
@@ -300,11 +267,7 @@ describe('Links', () => {
     const user = userEvent.setup();
     jest.spyOn(window, 'confirm').mockReturnValue(false);
 
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /^excluir$/i }));
@@ -316,11 +279,7 @@ describe('Links', () => {
     const user = userEvent.setup();
     mockedDeleteLink.mockRejectedValueOnce(new LinkApiError('Link não encontrado para esta operação.', 404));
 
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /^excluir$/i }));
@@ -330,11 +289,7 @@ describe('Links', () => {
 
   it('reseta edição ao excluir o link em edição', async () => {
     const user = userEvent.setup();
-    render(
-      <MemoryRouter>
-        <Links />
-      </MemoryRouter>,
-    );
+    renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /editar/i }));

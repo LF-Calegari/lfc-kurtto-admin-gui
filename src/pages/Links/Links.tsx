@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
+import { useToast } from '../../contexts/ToastContext';
 import { createLink, deleteLink, LinkApiError, listLinks, updateLink } from '../../services/linkService';
 
 import styles from './Links.module.css';
@@ -75,6 +76,7 @@ function toUiError(error: unknown): string {
 }
 
 function Links(): JSX.Element {
+  const { showToast } = useToast();
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,22 +84,19 @@ function Links(): JSX.Element {
   const [editingCode, setEditingCode] = useState<string | null>(null);
   const [form, setForm] = useState<LinkFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<LinkValidationErrors>({});
-  const [feedbackSuccess, setFeedbackSuccess] = useState('');
-  const [feedbackError, setFeedbackError] = useState('');
 
   const loadLinks = useCallback(async () => {
     setIsLoadingList(true);
-    setFeedbackError('');
     try {
       const result = await listLinks();
       setLinks(result.data);
     } catch (error) {
       console.error('Falha ao listar links.', error);
-      setFeedbackError(toUiError(error));
+      showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsLoadingList(false);
     }
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     void loadLinks();
@@ -112,11 +111,9 @@ function Links(): JSX.Element {
     event.preventDefault();
     const validationErrors = validateForm(form);
     setErrors(validationErrors);
-    setFeedbackSuccess('');
-    setFeedbackError('');
 
     if (Object.keys(validationErrors).length > 0) {
-      setFeedbackError(LOCAL_VALIDATION_MESSAGE);
+      showToast({ variant: 'warning', message: LOCAL_VALIDATION_MESSAGE });
       return;
     }
 
@@ -124,17 +121,17 @@ function Links(): JSX.Element {
     try {
       if (editingCode) {
         await updateLink(editingCode, buildUpdatePayload(form));
-        setFeedbackSuccess('Link atualizado com sucesso.');
+        showToast({ variant: 'success', message: 'Link atualizado com sucesso.' });
       } else {
         await createLink(buildCreatePayload(form));
-        setFeedbackSuccess('Link cadastrado com sucesso.');
+        showToast({ variant: 'success', message: 'Link cadastrado com sucesso.' });
       }
       setForm(INITIAL_FORM);
       setEditingCode(null);
       await loadLinks();
     } catch (error) {
       console.error('Falha ao salvar link.', error);
-      setFeedbackError(toUiError(error));
+      showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsSubmitting(false);
     }
@@ -142,8 +139,6 @@ function Links(): JSX.Element {
 
   const handleEdit = (link: LinkItem): void => {
     setEditingCode(link.shortCode);
-    setFeedbackError('');
-    setFeedbackSuccess('');
     setErrors({});
     setForm({
       originalUrl: link.originalUrl,
@@ -155,7 +150,6 @@ function Links(): JSX.Element {
     setEditingCode(null);
     setForm(INITIAL_FORM);
     setErrors({});
-    setFeedbackError('');
   };
 
   const handleDelete = async (code: string): Promise<void> => {
@@ -163,19 +157,17 @@ function Links(): JSX.Element {
     if (!confirmed) {
       return;
     }
-    setFeedbackSuccess('');
-    setFeedbackError('');
     setIsDeletingCode(code);
     try {
       await deleteLink(code);
-      setFeedbackSuccess('Link removido com sucesso.');
+      showToast({ variant: 'success', message: 'Link removido com sucesso.' });
       if (editingCode === code) {
         handleCancelEdit();
       }
       await loadLinks();
     } catch (error) {
       console.error('Falha ao remover link.', error);
-      setFeedbackError(toUiError(error));
+      showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsDeletingCode(null);
     }
@@ -267,18 +259,6 @@ function Links(): JSX.Element {
             <h1 className="h3 fw-medium mb-2">Links</h1>
             <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
           </div>
-
-          {feedbackSuccess && (
-            <output className="alert alert-success" aria-live="polite">
-              {feedbackSuccess}
-            </output>
-          )}
-
-          {feedbackError && (
-            <div className="alert alert-danger" role="alert">
-              {feedbackError}
-            </div>
-          )}
 
           <div className={`card shadow-sm ${styles.panel} mb-4`}>
             <div className="card-body p-4">
