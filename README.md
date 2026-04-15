@@ -20,7 +20,7 @@ npm install
 npm start
 ```
 
-A aplicação abre em [http://localhost:3000](http://localhost:3000) (ou na porta definida em `PORT`).
+A aplicação abre em [http://localhost:3001](http://localhost:3001) (ou na porta definida em `PORT`).
 
 ### Variáveis de ambiente
 
@@ -35,8 +35,8 @@ docker compose build app
 docker compose up app
 ```
 
-- URL: [http://localhost:3000](http://localhost:3000)
-- Porta: `PORT` no host mapeada para `3000` no container (ex.: `PORT=3001 docker compose up app`)
+- URL: [http://localhost:3001](http://localhost:3001)
+- Porta: `PORT` no host mapeada para a mesma porta no container (ex.: `PORT=3001 docker compose up app`)
 
 ## Build de produção em container (nginx)
 
@@ -45,7 +45,7 @@ docker compose --profile production build web
 docker compose --profile production up web
 ```
 
-- URL: [http://localhost:8080](http://localhost:8080) (ou `WEB_PORT` no host)
+- URL: [http://localhost:8081](http://localhost:8081) (ou `WEB_PORT` no host)
 
 ## Qualidade
 

@@ -28,24 +28,27 @@ Você entrega uma implementação **visualmente impecável** e pronta para revis
 - **HTTP Client:** Axios ou Fetch API (conforme padrão adotado no projeto)
 - **Testes:** React Testing Library + Jest (incluído no CRA)
 
-## 🏗️ Ecossistema Kurtto — Arquitetura de Serviços
+## 🗺️ Mapeamento de projetos (contexto multi-repo)
 
-O **kurtto-admin-gui** (KAG) faz parte de um ecossistema de microsserviços. Entender as responsabilidades de cada serviço é obrigatório para não misturar escopos nas implementações.
+Use este mapa como verdade de domínio quando houver citação de serviços/projetos:
 
-| Serviço | Responsabilidade | Relação com KAG |
-|---------|-----------------|-----------------|
-| **auth-service** | Autenticação, cadastro de sistemas, permissões e controle de acesso. Centraliza tudo relacionado a identidade e autorização. | KAG se comunica com auth-service **apenas no login**. |
-| **kurtto-service** | API do encurtador de links (CRUD de URLs, métricas, redirecionamentos). Depende do auth-service para autenticação. | KAG se comunica com kurtto-service para **todas as demais operações** (é a API principal do painel). |
-| **kurtto-admin-gui** | Painel administrativo SPA. Consome as APIs acima. | — |
+| Serviço | Responsabilidade | Relação com KAG | Relação com auth-service (AS) | Relação com Kurtto-Api (KA) |
+|---------|------------------|-----------------|-------------------------------|------------------------------|
+| **auth-service** | Autenticação, cadastro de sistemas, permissões e controle de acesso. Centraliza identidade e autorização. | KAG se comunica com AS **apenas no login**. | Serviço central de identidade/autorização. | KA consome AS para autenticação/autorização. |
+| **kurtto-api** | API do encurtador de links (CRUD de URLs, métricas e redirecionamentos). Depende do auth-service para autenticação/autorização. | KAG se comunica com KA para **todas as demais operações**. | Depende do AS para validar identidade/permissões. | Serviço principal de backend consumido pelo KAG. |
+| **kurtto-admin-gui (KAG)** | Painel administrativo SPA. Consome as APIs `auth-service` e `kurtto-api`. | Interface cliente (origem das chamadas). | Usa AS no fluxo de login/autenticação. | Usa KA em operações de negócio após login. |
 
-> Novos serviços podem ser adicionados ao ecossistema no futuro.
+### Caminhos locais dos projetos
 
-### Regras de comunicação do KAG
+- Auth Service: `/home/calegari/Documentos/Projetos/LF Calegari Sistemas/auth-service`
+- Kurtto API: `/home/calegari/Documentos/Projetos/LF Calegari Sistemas/Kurtto/kurtto-api`
+- Kurtto Admin GUI: `/home/calegari/Documentos/Projetos/LF Calegari Sistemas/Kurtto/kurtto-admin-gui`
 
-- **Login/autenticação** → `auth-service`
-- **Todo o resto** (links, métricas, configurações do encurtador) → `kurtto-service`
-- Nunca chamar `auth-service` para operações que não sejam autenticação
-- Nunca chamar `kurtto-service` para operações de login/permissões
+Regras obrigatórias de contexto:
+
+- Sempre que a issue/PR/comentário citar `auth-service`, `kurtto-api`, `kurtto-service` (alias legado) ou `kurtto-admin-gui`/`KAG`, carregar contexto do(s) projeto(s) citado(s) antes de revisar.
+- Se houver impacto entre projetos, revisar contrato de integração (autenticação, payloads, códigos de resposta, permissões e headers) e classificar risco de regressão cross-repo.
+- Em caso de dúvida de nomenclatura, considerar `kurtto-service` como referência a `kurtto-api`.
 
 ---
 
