@@ -1,0 +1,59 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-sand);
+}
+
+.mainColumn {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.main {
+  flex: 1;
+  padding: 24px;
+}
+
+.pageHeader {
+  margin-bottom: 24px;
+}
+
+.panel {
+  border: 1px solid rgba(26, 26, 26, 0.08);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--color-stone);
+}
+
+.dangerText {
+  color: var(--color-error);
+}
+
+.truncate {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tableCell {
+  vertical-align: middle;
+}
+
+@media (max-width: 991.98px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  .main {
+    padding: 16px;
+  }
+}

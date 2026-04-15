@@ -4,6 +4,7 @@ import { SessionBootstrapSpinner } from './components/ui/SessionBootstrapSpinner
 import { ROUTES } from './constants/routes';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Home from './pages/Home/Home';
+import Links from './pages/Links/Links';
 import { LoginRoute } from './routes/LoginRoute';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
@@ -24,6 +25,7 @@ function AppRoutes(): JSX.Element {
       <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
       <Route element={<ProtectedRoute />}>
         <Route path={ROUTES.HOME} element={<Home />} />
+        <Route path={ROUTES.LINKS} element={<Links />} />
       </Route>
       <Route path="/" element={<SessionAwareRedirect />} />
       <Route path="*" element={<SessionAwareRedirect />} />
