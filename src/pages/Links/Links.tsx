@@ -75,9 +75,22 @@ function toUiError(error: unknown): string {
   return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
 }
 
+function linkMatchesSearch(link: LinkItem, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return true;
+  }
+  return (
+    link.shortCode.toLowerCase().includes(q) ||
+    link.originalUrl.toLowerCase().includes(q) ||
+    link.shortUrl.toLowerCase().includes(q)
+  );
+}
+
 function Links(): JSX.Element {
   const { showToast } = useToast();
   const [links, setLinks] = useState<LinkItem[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingCode, setIsDeletingCode] = useState<string | null>(null);
@@ -104,6 +117,11 @@ function Links(): JSX.Element {
   const editingItem = useMemo(
     () => links.find((link) => link.shortCode === editingCode) ?? null,
     [links, editingCode],
+  );
+
+  const filteredLinks = useMemo(
+    () => links.filter((link) => linkMatchesSearch(link, searchQuery)),
+    [links, searchQuery],
   );
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -186,10 +204,26 @@ function Links(): JSX.Element {
         <p className={`mb-0 ${styles.muted}`}>Cadastre um novo link para começar.</p>
       </div>
     );
+  } else if (filteredLinks.length === 0) {
+    listPanelContent = (
+      <div className="p-4 text-center">
+        <p className="fw-medium mb-2">Nenhum link corresponde à busca.</p>
+        <p className={`mb-2 ${styles.muted}`}>Ajuste o termo ou limpe o campo de busca.</p>
+        <button
+          type="button"
+          className="btn btn-outline-secondary btn-sm"
+          onClick={() => {
+            setSearchQuery('');
+          }}
+        >
+          Limpar busca
+        </button>
+      </div>
+    );
   } else {
     listPanelContent = (
-      <div className="table-responsive">
-        <table className="table align-middle mb-0">
+      <div className={`table-responsive ${styles.tableCard}`}>
+        <table className="table table-striped align-middle mb-0">
           <thead>
             <tr>
               <th scope="col">Código</th>
@@ -202,7 +236,7 @@ function Links(): JSX.Element {
             </tr>
           </thead>
           <tbody>
-            {links.map((link) => (
+            {filteredLinks.map((link) => (
               <tr key={link.id}>
                 <td className={styles.tableCell}>
                   <span className="badge text-bg-light">{link.shortCode}</span>
@@ -258,6 +292,43 @@ function Links(): JSX.Element {
           </div>
 
           <div className={`card shadow-sm ${styles.panel} mb-4`}>
+            <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
+              <h2 className="h6 fw-medium mb-0">Buscar links</h2>
+            </div>
+            <div className="card-body p-4">
+              <div className="row g-3 align-items-end">
+                <div className="col-12">
+                  <label htmlFor="links-search-query" className="form-label fw-medium">
+                    Buscar na listagem
+                  </label>
+                  <p className={`form-text mb-2 ${styles.muted}`}>
+                    Filtra por código curto, URL de destino ou link encurtado.
+                  </p>
+                  <input
+                    id="links-search-query"
+                    name="searchQuery"
+                    type="search"
+                    className="form-control"
+                    placeholder="Digite para filtrar a listagem…"
+                    value={searchQuery}
+                    onChange={(event) => {
+                      setSearchQuery(event.target.value);
+                    }}
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className={`card shadow-sm ${styles.panel} mb-4 ${styles.tableCard}`}>
+            <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
+              <h2 className="h6 fw-medium mb-0">Listagem</h2>
+            </div>
+            <div className="card-body p-0">{listPanelContent}</div>
+          </div>
+
+          <div className={`card shadow-sm ${styles.panel}`}>
             <div className="card-body p-4">
               <h2 className="h5 fw-medium mb-3">{editingItem ? 'Editar link' : 'Cadastrar link'}</h2>
               <form noValidate onSubmit={handleSubmit}>
@@ -324,10 +395,6 @@ function Links(): JSX.Element {
                 </div>
               </form>
             </div>
-          </div>
-
-          <div className={`card shadow-sm ${styles.panel}`}>
-            <div className="card-body p-0">{listPanelContent}</div>
           </div>
         </main>
       </div>
