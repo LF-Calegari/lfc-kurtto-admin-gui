@@ -77,7 +77,7 @@ describe('Login', () => {
 
     expect(screen.getByRole('heading', { name: /entrar no kurtto/i })).toBeInTheDocument();
     expect(screen.getByLabelText(/e-mail/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/senha/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^senha$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /entrar/i })).toHaveClass('btn', 'btn-primary');
   });
 
@@ -101,7 +101,7 @@ describe('Login', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), 'email-invalido');
-      await user.type(screen.getByLabelText(/senha/i), 'senha-qualquer');
+      await user.type(screen.getByLabelText(/^senha$/i), 'senha-qualquer');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -130,7 +130,7 @@ describe('Login', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
-      await user.type(screen.getByLabelText(/senha/i), validCredentials.password);
+      await user.type(screen.getByLabelText(/^senha$/i), validCredentials.password);
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -153,7 +153,7 @@ describe('Login', () => {
 
     await act(async () => {
       await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
-      await user.type(screen.getByLabelText(/senha/i), 'wrong-pass');
+      await user.type(screen.getByLabelText(/^senha$/i), 'wrong-pass');
       await user.click(screen.getByRole('button', { name: /entrar/i }));
     });
 
@@ -192,7 +192,67 @@ describe('Login', () => {
       expect(screen.getByRole('heading', { name: /gerencie seus links com rapidez/i })).toBeVisible();
       expect(screen.getByRole('button', { name: /entrar/i })).toHaveClass('btn', 'btn-primary', 'w-100');
       expect(screen.getByLabelText(/e-mail/i)).toBeVisible();
-      expect(screen.getByLabelText(/senha/i)).toBeVisible();
+      expect(screen.getByLabelText(/^senha$/i)).toBeVisible();
     },
   );
+
+  it('alterna visibilidade da senha sem recarregar e mantém acessibilidade', async () => {
+    const user = userEvent.setup();
+
+    renderLoginOnly();
+
+    const passwordInput = screen.getByLabelText(/^senha$/i) as HTMLInputElement;
+    const toggle = screen.getByRole('button', { name: /mostrar senha/i });
+
+    expect(passwordInput).toHaveAttribute('type', 'password');
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+
+    await act(async () => {
+      await user.click(toggle);
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+    expect(screen.getByRole('button', { name: /ocultar senha/i })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /ocultar senha/i }));
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'password');
+  });
+
+  it('alterna visibilidade com Enter no botão focado', async () => {
+    const user = userEvent.setup();
+
+    renderLoginOnly();
+
+    const passwordInput = screen.getByLabelText(/^senha$/i) as HTMLInputElement;
+    const toggle = screen.getByRole('button', { name: /mostrar senha/i });
+
+    toggle.focus();
+    await act(async () => {
+      await user.keyboard('{Enter}');
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+  });
+
+  it('ativa alternância de visibilidade com Space no botão', async () => {
+    const user = userEvent.setup();
+
+    renderLoginOnly();
+
+    const passwordInput = screen.getByLabelText(/^senha$/i) as HTMLInputElement;
+    const toggle = screen.getByRole('button', { name: /mostrar senha/i });
+
+    toggle.focus();
+    await act(async () => {
+      await user.keyboard(' ');
+    });
+
+    expect(passwordInput).toHaveAttribute('type', 'text');
+  });
 });
