@@ -60,7 +60,7 @@ describe('linkService', () => {
     const result = await listLinks();
 
     expect(result.data).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/urls', {
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ describe('linkService', () => {
 
     await createLink({ originalUrl: 'https://example.com', customCode: 'abc123' });
 
-    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/urls', {
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls', {
       method: 'POST',
       body: JSON.stringify({ originalUrl: 'https://example.com', customCode: 'abc123' }),
       headers: {
@@ -117,7 +117,7 @@ describe('linkService', () => {
 
     await updateLink('abc123', { originalUrl: 'https://example.com/novo' });
 
-    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/urls/abc123', {
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls/abc123', {
       method: 'PATCH',
       body: JSON.stringify({ originalUrl: 'https://example.com/novo' }),
       headers: {
@@ -150,7 +150,8 @@ describe('linkService', () => {
 
     await expect(listLinks()).rejects.toMatchObject({
       status: 0,
-      message: 'Não foi possível concluir a operação. Tente novamente.',
+      message:
+        'Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.',
     });
   });
 
@@ -206,6 +207,41 @@ describe('linkService', () => {
     await expect(createLink({ originalUrl: 'https://example.com' })).rejects.toMatchObject({
       status: 422,
       message: 'Erro de validação',
+    });
+  });
+
+  it('mapeia 422 com error e details (contrato kurtto-api)', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse(
+        {
+          error: 'Validation failed',
+          details: [{ field: 'originalUrl', message: 'must be a valid URL' }],
+        },
+        422,
+      ),
+    );
+
+    await expect(createLink({ originalUrl: 'not-a-url' })).rejects.toMatchObject({
+      status: 422,
+      message: 'Validation failed: must be a valid URL',
+    });
+  });
+
+  it('mapeia 401 sem corpo para mensagem segura em português', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({}, 401));
+
+    await expect(listLinks()).rejects.toMatchObject({
+      status: 401,
+      message: 'Sessão expirada ou credenciais inválidas. Faça login novamente.',
+    });
+  });
+
+  it('mapeia 403 sem corpo para mensagem segura em português', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({}, 403));
+
+    await expect(listLinks()).rejects.toMatchObject({
+      status: 403,
+      message: 'Você não tem permissão para esta operação.',
     });
   });
 
