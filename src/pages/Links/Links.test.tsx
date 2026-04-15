@@ -58,7 +58,6 @@ function renderLinks(): ReturnType<typeof render> {
 
 describe('Links', () => {
   beforeEach(() => {
-    jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockedListLinks.mockResolvedValue({
       data: [
         {

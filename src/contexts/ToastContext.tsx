@@ -40,8 +40,24 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
+let toastIdFallbackSeq = 0;
+
+function createToastIdFromRandomBytes(bytes: Uint8Array): string {
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
 function createToastId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `toast-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj !== undefined && typeof cryptoObj.randomUUID === 'function') {
+    return cryptoObj.randomUUID();
+  }
+  if (cryptoObj !== undefined && typeof cryptoObj.getRandomValues === 'function') {
+    const bytes = new Uint8Array(16);
+    cryptoObj.getRandomValues(bytes);
+    return `toast-${createToastIdFromRandomBytes(bytes)}`;
+  }
+  toastIdFallbackSeq += 1;
+  return `toast-${Date.now()}-${toastIdFallbackSeq}`;
 }
 
 interface ToastProviderProps {

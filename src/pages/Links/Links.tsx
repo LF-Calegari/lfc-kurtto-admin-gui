@@ -91,7 +91,6 @@ function Links(): JSX.Element {
       const result = await listLinks();
       setLinks(result.data);
     } catch (error) {
-      console.error('Falha ao listar links.', error);
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsLoadingList(false);
@@ -130,7 +129,6 @@ function Links(): JSX.Element {
       setEditingCode(null);
       await loadLinks();
     } catch (error) {
-      console.error('Falha ao salvar link.', error);
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsSubmitting(false);
@@ -166,7 +164,6 @@ function Links(): JSX.Element {
       }
       await loadLinks();
     } catch (error) {
-      console.error('Falha ao remover link.', error);
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsDeletingCode(null);
