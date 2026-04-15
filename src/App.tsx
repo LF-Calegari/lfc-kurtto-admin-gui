@@ -8,7 +8,9 @@ import Links from './pages/Links/Links';
 import { LoginRoute } from './routes/LoginRoute';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 
-/** Redireciona conforme sessão (raiz e rotas não mapeadas usam a mesma lógica). */
+/** 
+ * Redireciona conforme sessão (raiz e rotas não mapeadas usam a mesma lógica).
+ */
 function SessionAwareRedirect(): JSX.Element {
   const { user, isBootstrapping } = useAuth();
 
