@@ -68,47 +68,63 @@ async function parseJsonBody(response: Response): Promise<unknown> {
   }
 }
 
+function firstNonEmptyTrimmedString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string') {
+      continue;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+  return null;
+}
+
+function collectDetailMessages(details: unknown[]): string[] {
+  const detailMessages: string[] = [];
+  for (const item of details) {
+    if (!item || typeof item !== 'object') {
+      continue;
+    }
+    const d = item as Record<string, unknown>;
+    if (typeof d.message === 'string' && d.message.trim().length > 0) {
+      detailMessages.push(d.message.trim());
+    }
+  }
+  return detailMessages;
+}
+
+function messageFromErrorAndDetails(record: Record<string, unknown>): string | null {
+  if (typeof record.error !== 'string') {
+    return null;
+  }
+  const err = record.error.trim();
+  if (err.length === 0) {
+    return null;
+  }
+  if (!Array.isArray(record.details)) {
+    return err;
+  }
+  const detailMessages = collectDetailMessages(record.details);
+  if (detailMessages.length === 0) {
+    return err;
+  }
+  return `${err}: ${detailMessages.join(' ')}`.slice(0, 600);
+}
+
 function extractUserFacingErrorMessage(body: unknown): string | null {
   if (!body || typeof body !== 'object') {
     return null;
   }
   const record = body as Record<string, unknown>;
 
-  if (typeof record.message === 'string') {
-    const trimmed = record.message.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
-  }
-  if (typeof record.title === 'string') {
-    const trimmed = record.title.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
+  const fromMessageOrTitle = firstNonEmptyTrimmedString([record.message, record.title]);
+  if (fromMessageOrTitle) {
+    return fromMessageOrTitle;
   }
 
-  if (typeof record.error === 'string') {
-    const err = record.error.trim();
-    if (err.length > 0) {
-      if (Array.isArray(record.details)) {
-        const detailMessages: string[] = [];
-        for (const item of record.details) {
-          if (item && typeof item === 'object') {
-            const d = item as Record<string, unknown>;
-            if (typeof d.message === 'string' && d.message.trim().length > 0) {
-              detailMessages.push(d.message.trim());
-            }
-          }
-        }
-        if (detailMessages.length > 0) {
-          return `${err}: ${detailMessages.join(' ')}`.slice(0, 600);
-        }
-      }
-      return err;
-    }
-  }
-
-  return null;
+  return messageFromErrorAndDetails(record);
 }
 
 function mapApiError(responseStatus: number, body: unknown): LinkApiError {
