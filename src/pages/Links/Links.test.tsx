@@ -47,6 +47,7 @@ const mockedDeleteLink = deleteLink as jest.MockedFunction<typeof deleteLink>;
 
 describe('Links', () => {
   beforeEach(() => {
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockedListLinks.mockResolvedValue({
       data: [
         {
