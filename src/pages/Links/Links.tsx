@@ -159,7 +159,7 @@ function Links(): JSX.Element {
   };
 
   const handleDelete = async (code: string): Promise<void> => {
-    const confirmed = window.confirm('Deseja remover este link?');
+    const confirmed = globalThis.confirm('Deseja remover este link?');
     if (!confirmed) {
       return;
     }
@@ -181,6 +181,82 @@ function Links(): JSX.Element {
     }
   };
 
+  let listPanelContent: JSX.Element;
+  if (isLoadingList) {
+    listPanelContent = (
+      <div className="p-4 text-center">
+        <output className="spinner-border" aria-live="polite" aria-label="Carregando links">
+          <span className="visually-hidden">Carregando links</span>
+        </output>
+      </div>
+    );
+  } else if (links.length === 0) {
+    listPanelContent = (
+      <div className="p-4 text-center">
+        <p className="fw-medium mb-2">Nenhum link cadastrado.</p>
+        <p className={`mb-0 ${styles.muted}`}>Cadastre um novo link para começar.</p>
+      </div>
+    );
+  } else {
+    listPanelContent = (
+      <div className="table-responsive">
+        <table className="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col">URL original</th>
+              <th scope="col">URL curta</th>
+              <th scope="col">Cliques</th>
+              <th scope="col" className="text-end">
+                Ações
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {links.map((link) => (
+              <tr key={link.id}>
+                <td className={styles.tableCell}>
+                  <span className="badge text-bg-light">{link.shortCode}</span>
+                </td>
+                <td className={`${styles.tableCell} ${styles.truncate}`} title={link.originalUrl}>
+                  {link.originalUrl}
+                </td>
+                <td className={`${styles.tableCell} ${styles.truncate}`} title={link.shortUrl}>
+                  {link.shortUrl}
+                </td>
+                <td className={styles.tableCell}>{link.clicks}</td>
+                <td className="text-end">
+                  <div className={`justify-content-end ${styles.actions}`}>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => {
+                        handleEdit(link);
+                      }}
+                      disabled={isSubmitting || isDeletingCode === link.shortCode}
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => {
+                        void handleDelete(link.shortCode);
+                      }}
+                      disabled={isSubmitting || isDeletingCode === link.shortCode}
+                    >
+                      {isDeletingCode === link.shortCode ? 'Removendo...' : 'Excluir'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.shell}>
       <Sidebar />
@@ -193,9 +269,9 @@ function Links(): JSX.Element {
           </div>
 
           {feedbackSuccess && (
-            <div className="alert alert-success" role="status">
+            <output className="alert alert-success" aria-live="polite">
               {feedbackSuccess}
-            </div>
+            </output>
           )}
 
           {feedbackError && (
@@ -274,76 +350,7 @@ function Links(): JSX.Element {
           </div>
 
           <div className={`card shadow-sm ${styles.panel}`}>
-            <div className="card-body p-0">
-              {isLoadingList ? (
-                <div className="p-4 text-center">
-                  <output className="spinner-border" aria-live="polite" aria-label="Carregando links">
-                    <span className="visually-hidden">Carregando links</span>
-                  </output>
-                </div>
-              ) : links.length === 0 ? (
-                <div className="p-4 text-center">
-                  <p className="fw-medium mb-2">Nenhum link cadastrado.</p>
-                  <p className={`mb-0 ${styles.muted}`}>Cadastre um novo link para começar.</p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table align-middle mb-0">
-                    <thead>
-                      <tr>
-                        <th scope="col">Código</th>
-                        <th scope="col">URL original</th>
-                        <th scope="col">URL curta</th>
-                        <th scope="col">Cliques</th>
-                        <th scope="col" className="text-end">
-                          Ações
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {links.map((link) => (
-                        <tr key={link.id}>
-                          <td className={styles.tableCell}>
-                            <span className="badge text-bg-light">{link.shortCode}</span>
-                          </td>
-                          <td className={`${styles.tableCell} ${styles.truncate}`} title={link.originalUrl}>
-                            {link.originalUrl}
-                          </td>
-                          <td className={`${styles.tableCell} ${styles.truncate}`} title={link.shortUrl}>
-                            {link.shortUrl}
-                          </td>
-                          <td className={styles.tableCell}>{link.clicks}</td>
-                          <td className="text-end">
-                            <div className={`justify-content-end ${styles.actions}`}>
-                              <button
-                                type="button"
-                                className="btn btn-outline-secondary btn-sm"
-                                onClick={() => {
-                                  handleEdit(link);
-                                }}
-                                disabled={isSubmitting || isDeletingCode === link.shortCode}
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline-danger btn-sm"
-                                onClick={() => {
-                                  void handleDelete(link.shortCode);
-                                }}
-                                disabled={isSubmitting || isDeletingCode === link.shortCode}
-                              >
-                                {isDeletingCode === link.shortCode ? 'Removendo...' : 'Excluir'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+            <div className="card-body p-0">{listPanelContent}</div>
           </div>
         </main>
       </div>

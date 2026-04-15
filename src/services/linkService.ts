@@ -107,8 +107,8 @@ function mapLinkItem(item: unknown): LinkItem {
     originalUrl: record.originalUrl as string,
     shortCode: record.shortCode as string,
     shortUrl: record.shortUrl as string,
-    clicks: record.clicks as number,
-    isActive: record.isActive as boolean,
+    clicks: record.clicks,
+    isActive: record.isActive,
     createdAt: record.createdAt as string,
     updatedAt: record.updatedAt as string,
     expiresAt: typeof record.expiresAt === 'string' ? record.expiresAt : null,
@@ -137,7 +137,7 @@ async function request(path: string, init: RequestInit): Promise<Response> {
       ...init,
       headers: {
         ...JSON_HEADERS,
-        ...(init.headers ?? {}),
+        ...init.headers,
         Authorization: `Bearer ${token}`,
       },
     });
