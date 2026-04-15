@@ -21,6 +21,14 @@ export function Sidebar(): JSX.Element {
         >
           Início
         </NavLink>
+        <NavLink
+          to={ROUTES.LINKS}
+          className={({ isActive }) =>
+            `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`.trim()
+          }
+        >
+          Links
+        </NavLink>
       </nav>
     </aside>
   );

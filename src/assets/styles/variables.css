@@ -13,6 +13,8 @@
   --color-amber: #f2a623;
   --color-blush: #faece7;
   --color-ink: #1a1a1a;
+  --color-ink-rgb: 26, 26, 26;
+  --color-border-subtle: rgba(var(--color-ink-rgb), 0.08);
   --color-charcoal: #3d3d3a;
   --color-stone: #73726c;
   --color-ash: #b4b2a9;
