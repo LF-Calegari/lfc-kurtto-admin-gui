@@ -52,6 +52,7 @@ describe('ToastContext', () => {
 
     const region = await screen.findByTestId('global-toast-region');
     expect(region).toBeInTheDocument();
+    expect(screen.getByText('Sucesso')).toBeInTheDocument();
     expect(screen.getByText('Mensagem de teste.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: /fechar notificação/i }));
@@ -135,5 +136,7 @@ describe('ToastContext', () => {
 
     expect(await screen.findByText('Primeiro.')).toBeInTheDocument();
     expect(screen.getByText('Segundo.')).toBeInTheDocument();
+    expect(screen.getByText('Atenção')).toBeInTheDocument();
+    expect(screen.getByText('Erro')).toBeInTheDocument();
   });
 });
