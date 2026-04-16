@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -6,6 +6,8 @@ import { ToastProvider } from '../../contexts/ToastContext';
 import { createLink, deleteLink, LinkApiError, listLinks } from '../../services/linkService';
 
 import Links from './Links';
+
+import type { ListLinksParams } from '../../types/link';
 
 jest.mock('bootstrap/js/dist/tooltip', () => {
   function MockTooltip() {
@@ -500,5 +502,336 @@ describe('Links', () => {
       expect(lastCall?.short_code__eq).toBeUndefined();
       expect(lastCall?.q).toBeUndefined();
     });
+  });
+
+  it('exibe estado vazio sem cadastros quando não há filtros', async () => {
+    mockedListLinks.mockResolvedValue({
+      data: [],
+      meta: { page: 1, limit: 10, total: 0, total_pages: 0 },
+    });
+
+    renderLinks();
+
+    expect(await screen.findByText('Nenhum link cadastrado.')).toBeInTheDocument();
+  });
+
+  it('exibe estado de busca vazia e limpa filtros pelo painel da listagem', async () => {
+    const user = userEvent.setup();
+    mockedListLinks
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: '1',
+            originalUrl: 'https://example.com',
+            shortCode: 'abc123',
+            shortUrl: 'https://k.tt/abc123',
+            clicks: 2,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: defaultListMeta,
+      })
+      .mockResolvedValue({
+        data: [],
+        meta: { page: 1, limit: 10, total: 0, total_pages: 0 },
+      });
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.type(screen.getByRole('searchbox'), 'nada');
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+
+    expect(await screen.findByText('Nenhum link corresponde aos filtros.')).toBeInTheDocument();
+    const emptySearchHint = screen.getByText('Ajuste os filtros ou limpe para ver todos os links.');
+    await user.click(within(emptySearchHint.closest('div') as HTMLElement).getByRole('button', { name: /^limpar filtros$/i }));
+
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ page: 1, limit: 10 }));
+      expect(last?.q).toBeUndefined();
+    });
+  });
+
+  it('recarrega a listagem ao clicar em Tentar novamente após erro', async () => {
+    const user = userEvent.setup();
+    mockedListLinks
+      .mockRejectedValueOnce(new Error('falha rede'))
+      .mockResolvedValue({
+        data: [
+          {
+            id: '1',
+            originalUrl: 'https://retry.com',
+            shortCode: 'retry1',
+            shortUrl: 'https://k.tt/retry1',
+            clicks: 0,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: defaultListMeta,
+      });
+
+    renderLinks();
+    expect(await screen.findByText('Não foi possível carregar a listagem.')).toBeInTheDocument();
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /tentar novamente/i }));
+
+    expect(await screen.findByText('https://retry.com')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('ignora segunda listagem enquanto a primeira ainda está em voo', async () => {
+    let resolvePending!: (value: Awaited<ReturnType<typeof listLinks>>) => void;
+    const listRow = {
+      id: '1',
+      originalUrl: 'https://example.com',
+      shortCode: 'abc123',
+      shortUrl: 'https://k.tt/abc123',
+      clicks: 2,
+      isActive: true,
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      expiresAt: null,
+      deletedAt: null,
+    };
+    const payload: Awaited<ReturnType<typeof listLinks>> = { data: [listRow], meta: defaultListMeta };
+
+    mockedListLinks.mockResolvedValueOnce(payload).mockImplementation(
+      () =>
+        new Promise<Awaited<ReturnType<typeof listLinks>>>((resolve) => {
+          resolvePending = resolve;
+        }),
+    );
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+
+    const buscar = screen.getByRole('button', { name: /^buscar$/i });
+    act(() => {
+      fireEvent.click(buscar);
+      fireEvent.click(buscar);
+    });
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(2);
+    });
+
+    resolvePending(payload);
+    await waitFor(() => {
+      expect(screen.getByText('https://example.com')).toBeInTheDocument();
+    });
+  });
+
+  it('alterna expansão dos filtros avançados e reflete aria-expanded', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    const toggle = screen.getByRole('button', { name: /filtros avançados/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(document.getElementById('links-advanced-filters')).toHaveClass('d-none');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(document.getElementById('links-advanced-filters')).not.toHaveClass('d-none');
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('exibe contagem de filtros ativos no botão de filtros avançados', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    await user.type(document.getElementById('links-filter-id') as HTMLInputElement, 'uuid-test');
+    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.id__eq === 'uuid-test')).toBe(true);
+    });
+
+    const toggle = screen.getByRole('button', { name: /filtros avançados/i });
+    expect(within(toggle).getByText('1')).toBeInTheDocument();
+  });
+
+  it('preenche campos avançados (URL, cliques entre, datas, status e excluídos) e aplica', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+
+    await user.selectOptions(screen.getByLabelText(/modo de filtro da url original/i), 'like');
+    await user.type(screen.getByLabelText(/^valor da url original$/i), 'loja');
+
+    await user.selectOptions(screen.getByLabelText(/operador de cliques/i), 'between');
+    await user.type(screen.getByLabelText(/^cliques mínimos$/i), '1');
+    await user.type(screen.getByLabelText(/^cliques máximos$/i), '10');
+
+    const createdFrom = '2026-02-01T08:00';
+    const createdTo = '2026-02-10T18:00';
+    await user.type(screen.getByLabelText('De', { selector: '#links-filter-created-from' }), createdFrom);
+    await user.type(screen.getByLabelText('Até', { selector: '#links-filter-created-to' }), createdTo);
+
+    await user.selectOptions(screen.getByLabelText(/^status$/i), 'false');
+
+    await user.click(screen.getByRole('checkbox', { name: /incluir excluídos/i }));
+
+    const deletedFrom = '2026-03-01T09:00';
+    const deletedTo = '2026-03-05T09:00';
+    await user.type(screen.getByLabelText('De', { selector: '#links-filter-deleted-from' }), deletedFrom);
+    await user.type(screen.getByLabelText('Até', { selector: '#links-filter-deleted-to' }), deletedTo);
+
+    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+
+    await waitFor(() => {
+      const hit = mockedListLinks.mock.calls.find(
+        (c) =>
+          c[0]?.original_url__like === 'loja' &&
+          c[0]?.clicks__between === '1,10' &&
+          c[0]?.active === false &&
+          c[0]?.include_deleted === true,
+      );
+      expect(hit).toBeDefined();
+      expect(hit?.[0]?.created_at__between).toBeDefined();
+      expect(hit?.[0]?.deleted_at__between).toBeDefined();
+    });
+
+    expect(screen.getByText(/URL \(contém\): loja/)).toBeInTheDocument();
+  });
+
+  it('navega para página anterior mantendo filtros aplicados', async () => {
+    const user = userEvent.setup();
+    const rowP1 = {
+      id: '1',
+      originalUrl: 'https://p1.com',
+      shortCode: 'p1code',
+      shortUrl: 'https://k.tt/p1code',
+      clicks: 0,
+      isActive: true,
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      expiresAt: null,
+      deletedAt: null,
+    };
+    mockedListLinks.mockImplementation((params?: Readonly<ListLinksParams>) => {
+      const page = params?.page ?? 1;
+      return Promise.resolve({
+        data: [rowP1],
+        meta: {
+          page,
+          limit: 10,
+          total: 25,
+          total_pages: 3,
+        },
+      });
+    });
+
+    renderLinks();
+    await screen.findByText('https://p1.com');
+
+    await user.type(screen.getByRole('searchbox'), 'x');
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.q === 'x')).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: /^próxima$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.page === 2)).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: /^anterior$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.page === 1 && c[0]?.q === 'x')).toBe(true);
+    });
+  });
+
+  it('fecha o modal de exclusão ao clicar no backdrop quando não está excluindo', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+
+    const backdrop = document.querySelectorAll('.modal-backdrop')[0];
+    expect(backdrop).not.toBeNull();
+    await user.click(backdrop as HTMLElement);
+
+    expect(screen.queryByRole('dialog', { name: /excluir link/i })).not.toBeInTheDocument();
+  });
+
+  it('não fecha o modal de exclusão com Escape enquanto a exclusão está em andamento', async () => {
+    const user = userEvent.setup();
+    let resolveDelete!: () => void;
+    mockedDeleteLink.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveDelete = resolve;
+        }),
+    );
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+    await user.click(screen.getByRole('button', { name: /confirmar exclusão/i }));
+
+    await waitFor(() => {
+      expect(mockedDeleteLink).toHaveBeenCalled();
+    });
+
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog', { name: /excluir link/i })).toBeInTheDocument();
+
+    resolveDelete();
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /excluir link/i })).not.toBeInTheDocument();
+    });
+  });
+
+  it('exibe toast de erro quando a listagem falha após aplicar filtros', async () => {
+    const user = userEvent.setup();
+    mockedListLinks
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: '1',
+            originalUrl: 'https://example.com',
+            shortCode: 'abc123',
+            shortUrl: 'https://k.tt/abc123',
+            clicks: 2,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: defaultListMeta,
+      })
+      .mockRejectedValueOnce(new Error('erro ao filtrar'));
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
+    await user.type(screen.getByLabelText(/^valor do código curto$/i), 'z');
+    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+
+    expect(await screen.findByText('erro ao filtrar')).toBeInTheDocument();
   });
 });

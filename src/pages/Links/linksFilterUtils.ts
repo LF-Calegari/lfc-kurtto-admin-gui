@@ -146,9 +146,8 @@ function applyClicksParams(params: ListLinksParams, advanced: Readonly<AdvancedF
 }
 
 function applyCreatedAtParams(params: ListLinksParams, advanced: Readonly<AdvancedFilterDraft>): void {
-  const createdFromIso =
-    advanced.createdFrom.trim().length > 0 ? toIsoFromDatetimeLocal(advanced.createdFrom) : null;
-  const createdToIso = advanced.createdTo.trim().length > 0 ? toIsoFromDatetimeLocal(advanced.createdTo) : null;
+  const createdFromIso = toIsoFromDatetimeLocal(advanced.createdFrom);
+  const createdToIso = toIsoFromDatetimeLocal(advanced.createdTo);
   if (createdFromIso && createdToIso) {
     params.created_at__between = `${createdFromIso},${createdToIso}`;
     return;
@@ -166,8 +165,8 @@ function applyDeletedAtParams(params: ListLinksParams, advanced: Readonly<Advanc
   if (!advanced.includeDeleted) {
     return;
   }
-  const df = advanced.deletedFrom.trim().length > 0 ? toIsoFromDatetimeLocal(advanced.deletedFrom) : null;
-  const dt = advanced.deletedTo.trim().length > 0 ? toIsoFromDatetimeLocal(advanced.deletedTo) : null;
+  const df = toIsoFromDatetimeLocal(advanced.deletedFrom);
+  const dt = toIsoFromDatetimeLocal(advanced.deletedTo);
   if (df && dt) {
     params.deleted_at__between = `${df},${dt}`;
     return;

@@ -117,6 +117,33 @@ describe('linksFilterUtils', () => {
       expect(params.clicks__between).toBeUndefined();
     });
 
+    it('não define cliques eq/lt/gt quando o valor não for inteiro válido', () => {
+      expect(
+        buildAppliedListParams('', {
+          ...INITIAL_ADVANCED_FILTER,
+          clicksOp: 'eq',
+          clicksValue: 'abc',
+        }).clicks__eq,
+      ).toBeUndefined();
+    });
+
+    it('ignora datas de criação inválidas ou vazias', () => {
+      expect(
+        buildAppliedListParams('', {
+          ...INITIAL_ADVANCED_FILTER,
+          createdFrom: '   ',
+          createdTo: 'não-é-data',
+        }).created_at__gt,
+      ).toBeUndefined();
+      expect(
+        buildAppliedListParams('', {
+          ...INITIAL_ADVANCED_FILTER,
+          createdFrom: 'não-é-data',
+          createdTo: '',
+        }).created_at__gt,
+      ).toBeUndefined();
+    });
+
     it('aplica intervalo de criação (gt, lt e between)', () => {
       const from = '2026-01-10T08:00';
       const to = '2026-01-20T18:00';
