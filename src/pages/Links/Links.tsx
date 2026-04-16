@@ -1,25 +1,23 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
 import { useToast } from '../../contexts/ToastContext';
-import { createLink, deleteLink, LinkApiError, listLinks, updateLink } from '../../services/linkService';
+import { createLink, deleteLink, LinkApiError, listLinks } from '../../services/linkService';
 
 import styles from './Links.module.css';
 
-import type { CreateLinkPayload, LinkItem, UpdateLinkPayload } from '../../types/link';
+import type { CreateLinkPayload, LinkItem } from '../../types/link';
 
 interface LinkFormState {
   originalUrl: string;
-  customCode: string;
 }
 
 interface LinkValidationErrors {
   originalUrl?: string;
-  customCode?: string;
 }
 
-const INITIAL_FORM: LinkFormState = { originalUrl: '', customCode: '' };
+const INITIAL_FORM: LinkFormState = { originalUrl: '' };
 const LOCAL_VALIDATION_MESSAGE = 'Revise os campos obrigatórios antes de continuar.';
 
 function isValidHttpUrl(value: string): boolean {
@@ -34,7 +32,6 @@ function isValidHttpUrl(value: string): boolean {
 function validateForm(form: LinkFormState): LinkValidationErrors {
   const errors: LinkValidationErrors = {};
   const urlValue = form.originalUrl.trim();
-  const customCode = form.customCode.trim();
 
   if (!urlValue) {
     errors.originalUrl = LOCAL_VALIDATION_MESSAGE;
@@ -44,22 +41,10 @@ function validateForm(form: LinkFormState): LinkValidationErrors {
     errors.originalUrl = LOCAL_VALIDATION_MESSAGE;
   }
 
-  if (customCode && (customCode.length < 3 || customCode.length > 10 || !/^[a-zA-Z0-9]+$/.test(customCode))) {
-    errors.customCode = LOCAL_VALIDATION_MESSAGE;
-  }
-
   return errors;
 }
 
 function buildCreatePayload(form: LinkFormState): CreateLinkPayload {
-  const customCode = form.customCode.trim();
-  return {
-    originalUrl: form.originalUrl.trim(),
-    ...(customCode ? { customCode } : {}),
-  };
-}
-
-function buildUpdatePayload(form: LinkFormState): UpdateLinkPayload {
   return {
     originalUrl: form.originalUrl.trim(),
   };
@@ -94,9 +79,10 @@ function Links(): JSX.Element {
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingCode, setIsDeletingCode] = useState<string | null>(null);
-  const [editingCode, setEditingCode] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [form, setForm] = useState<LinkFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<LinkValidationErrors>({});
+  const createUrlInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadLinks = useCallback(async () => {
     setIsLoadingList(true);
@@ -114,17 +100,65 @@ function Links(): JSX.Element {
     void loadLinks();
   }, [loadLinks]);
 
-  const editingItem = useMemo(
-    () => links.find((link) => link.shortCode === editingCode) ?? null,
-    [links, editingCode],
-  );
+  const handleOpenCreateModal = useCallback((): void => {
+    setForm(INITIAL_FORM);
+    setErrors({});
+    setIsCreateModalOpen(true);
+  }, []);
+
+  const handleCloseCreateModal = useCallback((): void => {
+    if (isSubmitting) {
+      return;
+    }
+    setIsCreateModalOpen(false);
+    setForm(INITIAL_FORM);
+    setErrors({});
+  }, [isSubmitting]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isCreateModalOpen]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+    const id = globalThis.requestAnimationFrame(() => {
+      createUrlInputRef.current?.focus();
+    });
+    return () => {
+      globalThis.cancelAnimationFrame(id);
+    };
+  }, [isCreateModalOpen]);
+
+  useEffect(() => {
+    if (!isCreateModalOpen) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        handleCloseCreateModal();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [isCreateModalOpen, handleCloseCreateModal]);
 
   const filteredLinks = useMemo(
     () => links.filter((link) => linkMatchesSearch(link, searchQuery)),
     [links, searchQuery],
   );
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+  const handleCreateSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     const validationErrors = validateForm(form);
     setErrors(validationErrors);
@@ -136,36 +170,17 @@ function Links(): JSX.Element {
 
     setIsSubmitting(true);
     try {
-      if (editingCode) {
-        await updateLink(editingCode, buildUpdatePayload(form));
-        showToast({ variant: 'success', message: 'Link atualizado com sucesso.' });
-      } else {
-        await createLink(buildCreatePayload(form));
-        showToast({ variant: 'success', message: 'Link cadastrado com sucesso.' });
-      }
+      await createLink(buildCreatePayload(form));
+      showToast({ variant: 'success', message: 'Link cadastrado com sucesso.' });
+      setIsCreateModalOpen(false);
       setForm(INITIAL_FORM);
-      setEditingCode(null);
+      setErrors({});
       await loadLinks();
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleEdit = (link: LinkItem): void => {
-    setEditingCode(link.shortCode);
-    setErrors({});
-    setForm({
-      originalUrl: link.originalUrl,
-      customCode: link.shortCode,
-    });
-  };
-
-  const handleCancelEdit = (): void => {
-    setEditingCode(null);
-    setForm(INITIAL_FORM);
-    setErrors({});
   };
 
   const handleDelete = async (code: string): Promise<void> => {
@@ -177,9 +192,6 @@ function Links(): JSX.Element {
     try {
       await deleteLink(code);
       showToast({ variant: 'success', message: 'Link removido com sucesso.' });
-      if (editingCode === code) {
-        handleCancelEdit();
-      }
       await loadLinks();
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
@@ -252,16 +264,6 @@ function Links(): JSX.Element {
                   <div className={`justify-content-end ${styles.actions}`}>
                     <button
                       type="button"
-                      className="btn btn-outline-secondary btn-sm"
-                      onClick={() => {
-                        handleEdit(link);
-                      }}
-                      disabled={isSubmitting || isDeletingCode === link.shortCode}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
                       className="btn btn-outline-danger btn-sm"
                       onClick={() => {
                         void handleDelete(link.shortCode);
@@ -286,9 +288,14 @@ function Links(): JSX.Element {
       <div className={styles.mainColumn}>
         <AppHeader />
         <main className={styles.main}>
-          <div className={styles.pageHeader}>
-            <h1 className="h3 fw-medium mb-2">Links</h1>
-            <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
+          <div className={`${styles.pageHeader} d-flex flex-wrap justify-content-between align-items-start gap-3`}>
+            <div className="flex-grow-1 min-w-0">
+              <h1 className="h3 fw-medium mb-2">Links</h1>
+              <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
+            </div>
+            <button type="button" className="btn btn-primary flex-shrink-0" onClick={handleOpenCreateModal}>
+              Adicionar link
+            </button>
           </div>
 
           <div className={`card shadow-sm ${styles.panel} mb-4`}>
@@ -328,74 +335,96 @@ function Links(): JSX.Element {
             <div className="card-body p-0">{listPanelContent}</div>
           </div>
 
-          <div className={`card shadow-sm ${styles.panel}`}>
-            <div className="card-body p-4">
-              <h2 className="h5 fw-medium mb-3">{editingItem ? 'Editar link' : 'Cadastrar link'}</h2>
-              <form noValidate onSubmit={handleSubmit}>
-                <div className="row g-3">
-                  <div className="col-12 col-lg-7">
-                    <label htmlFor="original-url" className="form-label fw-medium">
-                      URL original
-                    </label>
-                    <input
-                      id="original-url"
-                      name="originalUrl"
-                      type="url"
-                      className={`form-control ${errors.originalUrl ? 'is-invalid' : ''}`}
-                      value={form.originalUrl}
-                      onChange={(event) => {
-                        setForm((previous) => ({ ...previous, originalUrl: event.target.value }));
-                      }}
-                      disabled={isSubmitting}
-                    />
-                    {errors.originalUrl && <div className="invalid-feedback">{errors.originalUrl}</div>}
-                  </div>
-                  <div className="col-12 col-lg-5">
-                    <label htmlFor="custom-code" className="form-label fw-medium">
-                      Código curto (opcional no cadastro)
-                    </label>
-                    <input
-                      id="custom-code"
-                      name="customCode"
-                      type="text"
-                      className={`form-control ${errors.customCode ? 'is-invalid' : ''}`}
-                      value={form.customCode}
-                      onChange={(event) => {
-                        setForm((previous) => ({ ...previous, customCode: event.target.value }));
-                      }}
-                      disabled={isSubmitting || Boolean(editingItem)}
-                      maxLength={10}
-                    />
-                    {errors.customCode && <div className="invalid-feedback">{errors.customCode}</div>}
+          {isCreateModalOpen && (
+            <>
+              <div
+                className={`modal-backdrop fade show ${styles.modalBackdrop}`}
+                role="presentation"
+                onClick={() => {
+                  if (!isSubmitting) {
+                    handleCloseCreateModal();
+                  }
+                }}
+              />
+              <div
+                className={`modal fade show d-block ${styles.modalRoot}`}
+                tabIndex={-1}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="create-link-modal-title"
+              >
+                <div className="modal-dialog modal-dialog-centered modal-lg">
+                  <div className="modal-content">
+                    <div className="modal-header">
+                      <h2 id="create-link-modal-title" className="modal-title h5 fw-medium mb-0">
+                        Cadastrar link
+                      </h2>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Fechar"
+                        onClick={handleCloseCreateModal}
+                        disabled={isSubmitting}
+                      />
+                    </div>
+                    <form noValidate onSubmit={handleCreateSubmit}>
+                      <div className="modal-body">
+                        <div className="row g-3">
+                          <div className="col-12">
+                            <label htmlFor="create-link-original-url" className="form-label fw-medium">
+                              URL original
+                            </label>
+                            <input
+                              ref={createUrlInputRef}
+                              id="create-link-original-url"
+                              name="originalUrl"
+                              type="url"
+                              className={`form-control ${errors.originalUrl ? 'is-invalid' : ''}`}
+                              value={form.originalUrl}
+                              onChange={(event) => {
+                                setForm((previous) => ({ ...previous, originalUrl: event.target.value }));
+                              }}
+                              disabled={isSubmitting}
+                              placeholder="https://"
+                              autoComplete="off"
+                            />
+                            {errors.originalUrl && (
+                              <div className="invalid-feedback">{errors.originalUrl}</div>
+                            )}
+                            <p className={`form-text mb-0 mt-2 ${styles.muted}`}>
+                              O código curto é gerado automaticamente após o cadastro.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="modal-footer flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-outline-secondary"
+                          onClick={handleCloseCreateModal}
+                          disabled={isSubmitting}
+                        >
+                          Cancelar
+                        </button>
+                        <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
+                          {isSubmitting && (
+                            <output
+                              className="spinner-border spinner-border-sm me-2 d-inline-block"
+                              aria-live="polite"
+                              aria-label="Salvando"
+                            >
+                              <span className="visually-hidden">Salvando</span>
+                            </output>
+                          )}
+                          Cadastrar link
+                        </button>
+                      </div>
+                    </form>
                   </div>
                 </div>
-                <div className="d-flex flex-wrap gap-2 mt-4">
-                  <button type="submit" className="btn btn-primary" disabled={isSubmitting}>
-                    {isSubmitting && (
-                      <output
-                        className="spinner-border spinner-border-sm me-2 d-inline-block"
-                        aria-live="polite"
-                        aria-label="Salvando"
-                      >
-                        <span className="visually-hidden">Salvando</span>
-                      </output>
-                    )}
-                    {editingItem ? 'Salvar edição' : 'Cadastrar link'}
-                  </button>
-                  {editingItem && (
-                    <button
-                      type="button"
-                      className="btn btn-outline-secondary"
-                      onClick={handleCancelEdit}
-                      disabled={isSubmitting}
-                    >
-                      Cancelar edição
-                    </button>
-                  )}
-                </div>
-              </form>
-            </div>
-          </div>
+              </div>
+            </>
+          )}
         </main>
       </div>
     </div>

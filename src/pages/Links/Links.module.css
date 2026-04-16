@@ -57,6 +57,14 @@
   vertical-align: middle;
 }
 
+.modalBackdrop {
+  z-index: 1050;
+}
+
+.modalRoot {
+  z-index: 1055;
+}
+
 @media (max-width: 991.98px) {
   .shell {
     flex-direction: column;
