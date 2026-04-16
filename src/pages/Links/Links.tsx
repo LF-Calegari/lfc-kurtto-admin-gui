@@ -297,7 +297,13 @@ function Links(): JSX.Element {
             <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
           </div>
 
-          <div className={`card shadow-sm ${styles.panel} mb-4`}>
+          <form
+            className={`card shadow-sm ${styles.panel} mb-4`}
+            id="links-filter-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
               <h2 className="h6 fw-medium mb-0">Buscar links</h2>
             </div>
@@ -323,6 +329,17 @@ function Links(): JSX.Element {
                     autoComplete="off"
                   />
                 </div>
+              </div>
+            </div>
+            <div className={`card-footer p-4 ${styles.filterCardFooter}`}>
+              <div className="row">
+                <div className="col-12 col-lg-auto ms-auto">
+                  <div className="d-grid d-lg-block">
+                    <button type="submit" className="btn btn-success flex-shrink-0">
+                      Buscar
+                    </button>
+                  </div>
+                </div>
                 <div className="col-12 col-lg-auto">
                   <div className="d-grid d-lg-block">
                     <button
@@ -336,7 +353,7 @@ function Links(): JSX.Element {
                 </div>
               </div>
             </div>
-          </div>
+          </form>
 
           <div className={`card shadow-sm ${styles.panel} mb-4 ${styles.tableCard}`}>
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
