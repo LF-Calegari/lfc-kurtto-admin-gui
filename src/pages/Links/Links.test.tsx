@@ -460,4 +460,44 @@ describe('Links', () => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.page === 2 && c[0]?.q === 'termo')).toBe(true);
     });
   });
+
+  it('aplica filtro avançado de código curto e exibe resumo em chips', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
+    await user.type(screen.getByLabelText(/^valor do código curto$/i), 'xcode');
+    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'xcode')).toBe(true);
+    });
+    expect(screen.getByText(/Código \(igual\): xcode/)).toBeInTheDocument();
+  });
+
+  it('limpa filtros avançados e volta à listagem sem parâmetros de filtro', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
+    await user.type(screen.getByLabelText(/^valor do código curto$/i), 'abc');
+    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'abc')).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: /^limpar filtros$/i }));
+
+    await waitFor(() => {
+      const lastCall = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(lastCall).toEqual(expect.objectContaining({ page: 1, limit: 10 }));
+      expect(lastCall?.short_code__eq).toBeUndefined();
+      expect(lastCall?.q).toBeUndefined();
+    });
+  });
 });

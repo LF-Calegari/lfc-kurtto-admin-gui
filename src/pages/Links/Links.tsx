@@ -17,6 +17,12 @@ import { createLink, deleteLink, listLinks } from '../../services/linkService';
 
 import styles from './Links.module.css';
 import {
+  buildAppliedListParams,
+  buildFilterChips,
+  countActiveFilters,
+  INITIAL_ADVANCED_FILTER,
+} from './linksFilterUtils';
+import {
   buildCreatePayload,
   INITIAL_FORM,
   LOCAL_VALIDATION_MESSAGE,
@@ -24,6 +30,7 @@ import {
   validateForm,
 } from './linksFormUtils';
 
+import type { AdvancedFilterDraft } from './linksFilterUtils';
 import type { LinkFormState, LinkValidationErrors } from './linksFormUtils';
 import type { LinkItem, ListLinksMeta } from '../../types/link';
 
@@ -39,7 +46,7 @@ type LinksListPanelKind =
 function deduceListPanelKind(
   isLoadingList: boolean,
   listMeta: ListLinksMeta | null,
-  appliedQueryTrimmed: string,
+  hasActiveFilters: boolean,
 ): LinksListPanelKind {
   if (isLoadingList) {
     return 'loading';
@@ -47,7 +54,7 @@ function deduceListPanelKind(
   if (listMeta === null) {
     return 'error';
   }
-  if (listMeta.total === 0 && appliedQueryTrimmed.length === 0) {
+  if (listMeta.total === 0 && !hasActiveFilters) {
     return 'empty-no-query';
   }
   if (listMeta.total === 0) {
@@ -105,10 +112,10 @@ function LinksListPanel({
     case 'empty-search':
       return (
         <div className="p-4 text-center">
-          <p className="fw-medium mb-2">Nenhum link corresponde à busca.</p>
-          <p className={`mb-2 ${styles.muted}`}>Ajuste o termo ou limpe o campo de busca.</p>
+          <p className="fw-medium mb-2">Nenhum link corresponde aos filtros.</p>
+          <p className={`mb-2 ${styles.muted}`}>Ajuste os filtros ou limpe para ver todos os links.</p>
           <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onClearSearch}>
-            Limpar busca
+            Limpar filtros
           </button>
         </div>
       );
@@ -183,6 +190,9 @@ function Links(): JSX.Element {
   const [listMeta, setListMeta] = useState<ListLinksMeta | null>(null);
   const [draftQuery, setDraftQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
+  const [draftAdvanced, setDraftAdvanced] = useState<AdvancedFilterDraft>(INITIAL_ADVANCED_FILTER);
+  const [appliedAdvanced, setAppliedAdvanced] = useState<AdvancedFilterDraft>(INITIAL_ADVANCED_FILTER);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingCode, setIsDeletingCode] = useState<string | null>(null);
@@ -195,22 +205,29 @@ function Links(): JSX.Element {
   const listFetchInFlight = useRef(false);
 
   const fetchList = useCallback(
-    async (targetPage: number, queryForList: string): Promise<void> => {
+    async (
+      targetPage: number,
+      quickSearch: string,
+      advanced: AdvancedFilterDraft,
+    ): Promise<void> => {
       if (listFetchInFlight.current) {
         return;
       }
       listFetchInFlight.current = true;
       setIsLoadingList(true);
       try {
-        const trimmed = queryForList.trim();
+        const appliedParams = buildAppliedListParams(quickSearch.trim(), advanced);
         const result = await listLinks({
           page: targetPage,
           limit: PAGE_SIZE,
-          ...(trimmed.length > 0 ? { q: trimmed } : {}),
+          ...appliedParams,
         });
         setLinks(result.data);
         setListMeta(result.meta);
-        setAppliedQuery(queryForList);
+        setAppliedQuery(quickSearch);
+        setAppliedAdvanced(advanced);
+        setDraftQuery(quickSearch);
+        setDraftAdvanced(advanced);
       } catch (error) {
         showToast({ variant: 'error', message: toUiError(error) });
       } finally {
@@ -222,7 +239,7 @@ function Links(): JSX.Element {
   );
 
   useEffect(() => {
-    void fetchList(1, '');
+    void fetchList(1, '', INITIAL_ADVANCED_FILTER);
   }, [fetchList]);
 
   const handleOpenCreateModal = useCallback((): void => {
@@ -337,7 +354,7 @@ function Links(): JSX.Element {
       setIsCreateModalOpen(false);
       setForm(INITIAL_FORM);
       setErrors({});
-      await fetchList(listMeta?.page ?? 1, appliedQuery);
+      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced);
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
@@ -355,7 +372,7 @@ function Links(): JSX.Element {
       await deleteLink(code);
       showToast({ variant: 'success', message: 'Link removido com sucesso.' });
       setDeleteConfirmCode(null);
-      await fetchList(listMeta?.page ?? 1, appliedQuery);
+      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced);
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
@@ -363,7 +380,14 @@ function Links(): JSX.Element {
     }
   };
 
-  const listPanelKind = deduceListPanelKind(isLoadingList, listMeta, appliedQuery.trim());
+  const appliedFilterParams = buildAppliedListParams(appliedQuery.trim(), appliedAdvanced);
+  const appliedFilterChips = buildFilterChips(appliedFilterParams);
+  const appliedFiltersCount = countActiveFilters(appliedFilterParams);
+  const listPanelKind = deduceListPanelKind(
+    isLoadingList,
+    listMeta,
+    countActiveFilters(appliedFilterParams) > 0,
+  );
 
   const listPanelContent = (
     <LinksListPanel
@@ -373,11 +397,12 @@ function Links(): JSX.Element {
       isSubmitting={isSubmitting}
       isDeletingCode={isDeletingCode}
       onRetryList={() => {
-        void fetchList(1, appliedQuery);
+        void fetchList(1, appliedQuery, appliedAdvanced);
       }}
       onClearSearch={() => {
         setDraftQuery('');
-        void fetchList(1, '');
+        setDraftAdvanced(INITIAL_ADVANCED_FILTER);
+        void fetchList(1, '', INITIAL_ADVANCED_FILTER);
       }}
       onRequestDelete={setDeleteConfirmCode}
     />
@@ -399,13 +424,42 @@ function Links(): JSX.Element {
             id="links-filter-form"
             onSubmit={(event) => {
               event.preventDefault();
-              void fetchList(1, draftQuery);
+              void fetchList(1, draftQuery, draftAdvanced);
             }}
           >
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
-              <h2 className="h6 fw-medium mb-0">Buscar links</h2>
+              <div className="d-flex flex-column flex-sm-row gap-3 align-items-sm-center justify-content-between">
+                <h2 className="h6 fw-medium mb-0">Buscar links</h2>
+                <button
+                  type="button"
+                  className={`btn btn-sm btn-outline-secondary ${styles.advancedFiltersToggle}`}
+                  id="links-advanced-filters-toggle"
+                  aria-expanded={filtersExpanded}
+                  aria-controls="links-advanced-filters"
+                  onClick={() => {
+                    setFiltersExpanded((previous) => !previous);
+                  }}
+                >
+                  Filtros avançados
+                  {appliedFiltersCount > 0 ? (
+                    <span className="badge rounded-pill text-bg-secondary ms-2">{appliedFiltersCount}</span>
+                  ) : null}
+                </button>
+              </div>
             </div>
             <div className="card-body p-4">
+              {appliedFilterChips.length > 0 ? (
+                <div className={`mb-4 pb-3 ${styles.filterChipsRow}`} aria-label="Filtros ativos na listagem">
+                  <p className={`small fw-medium mb-2 ${styles.muted}`}>Filtros ativos</p>
+                  <div className="d-flex flex-wrap gap-2">
+                    {appliedFilterChips.map((chip, index) => (
+                      <span key={`${chip.id}-${index}`} className={`badge ${styles.filterChip}`}>
+                        {chip.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="row g-3 align-items-end">
                 <div className="col-12 col-lg min-w-0">
                   <label htmlFor="links-search-query" className="form-label fw-medium">
@@ -429,26 +483,312 @@ function Links(): JSX.Element {
                   />
                 </div>
               </div>
+
+              <div
+                id="links-advanced-filters"
+                className={filtersExpanded ? 'mt-4 pt-2 border-top' : 'd-none'}
+                role="region"
+                aria-hidden={!filtersExpanded}
+                aria-labelledby="links-advanced-filters-toggle"
+              >
+                <p className="fw-medium mb-3">Refinar por campos da API</p>
+                <div className="row g-3">
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <label htmlFor="links-filter-id" className="form-label fw-medium">
+                      ID
+                    </label>
+                    <input
+                      id="links-filter-id"
+                      name="filterId"
+                      type="text"
+                      className="form-control font-monospace"
+                      value={draftAdvanced.idEq}
+                      onChange={(event) => {
+                        setDraftAdvanced((previous) => ({ ...previous, idEq: event.target.value }));
+                      }}
+                      autoComplete="off"
+                      placeholder="UUID"
+                    />
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <label htmlFor="links-filter-short-op" className="form-label fw-medium">
+                      Código curto
+                    </label>
+                    <div className="row g-2">
+                      <div className="col-12 col-sm-5">
+                        <select
+                          id="links-filter-short-op"
+                          className="form-select"
+                          value={draftAdvanced.shortCodeOp}
+                          onChange={(event) => {
+                            const value = event.target.value as AdvancedFilterDraft['shortCodeOp'];
+                            setDraftAdvanced((previous) => ({ ...previous, shortCodeOp: value }));
+                          }}
+                          aria-label="Modo de filtro do código curto"
+                        >
+                          <option value="none">Sem filtro</option>
+                          <option value="eq">Igual a</option>
+                          <option value="like">Contém</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-sm-7">
+                        <input
+                          id="links-filter-short-value"
+                          type="text"
+                          className="form-control"
+                          value={draftAdvanced.shortCode}
+                          onChange={(event) => {
+                            setDraftAdvanced((previous) => ({ ...previous, shortCode: event.target.value }));
+                          }}
+                          disabled={draftAdvanced.shortCodeOp === 'none'}
+                          autoComplete="off"
+                          placeholder="Valor"
+                          aria-label="Valor do código curto"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <label htmlFor="links-filter-url-op" className="form-label fw-medium">
+                      Filtrar URL original
+                    </label>
+                    <div className="row g-2">
+                      <div className="col-12 col-sm-5">
+                        <select
+                          id="links-filter-url-op"
+                          className="form-select"
+                          value={draftAdvanced.originalUrlOp}
+                          onChange={(event) => {
+                            const value = event.target.value as AdvancedFilterDraft['originalUrlOp'];
+                            setDraftAdvanced((previous) => ({ ...previous, originalUrlOp: value }));
+                          }}
+                          aria-label="Modo de filtro da URL original"
+                        >
+                          <option value="none">Sem filtro</option>
+                          <option value="eq">Igual a</option>
+                          <option value="like">Contém</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-sm-7">
+                        <input
+                          id="links-filter-url-value"
+                          type="text"
+                          className="form-control"
+                          value={draftAdvanced.originalUrl}
+                          onChange={(event) => {
+                            setDraftAdvanced((previous) => ({ ...previous, originalUrl: event.target.value }));
+                          }}
+                          disabled={draftAdvanced.originalUrlOp === 'none'}
+                          autoComplete="off"
+                          placeholder="https://"
+                          aria-label="Valor da URL original"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <label htmlFor="links-filter-clicks-op" className="form-label fw-medium">
+                      Cliques
+                    </label>
+                    <div className="row g-2 align-items-end">
+                      <div className="col-12 col-sm-4">
+                        <select
+                          id="links-filter-clicks-op"
+                          className="form-select"
+                          value={draftAdvanced.clicksOp}
+                          onChange={(event) => {
+                            const value = event.target.value as AdvancedFilterDraft['clicksOp'];
+                            setDraftAdvanced((previous) => ({ ...previous, clicksOp: value }));
+                          }}
+                          aria-label="Operador de cliques"
+                        >
+                          <option value="none">Sem filtro</option>
+                          <option value="eq">Igual a</option>
+                          <option value="lt">Menor que</option>
+                          <option value="gt">Maior que</option>
+                          <option value="between">Entre</option>
+                        </select>
+                      </div>
+                      <div className="col-12 col-sm-4">
+                        <input
+                          id="links-filter-clicks-a"
+                          type="text"
+                          inputMode="numeric"
+                          className="form-control"
+                          value={draftAdvanced.clicksValue}
+                          onChange={(event) => {
+                            setDraftAdvanced((previous) => ({ ...previous, clicksValue: event.target.value }));
+                          }}
+                          disabled={draftAdvanced.clicksOp === 'none'}
+                          autoComplete="off"
+                          placeholder={draftAdvanced.clicksOp === 'between' ? 'Mín.' : 'Valor'}
+                          aria-label={draftAdvanced.clicksOp === 'between' ? 'Cliques mínimos' : 'Valor de cliques'}
+                        />
+                      </div>
+                      {draftAdvanced.clicksOp === 'between' ? (
+                        <div className="col-12 col-sm-4">
+                          <input
+                            id="links-filter-clicks-b"
+                            type="text"
+                            inputMode="numeric"
+                            className="form-control"
+                            value={draftAdvanced.clicksValueEnd}
+                            onChange={(event) => {
+                              setDraftAdvanced((previous) => ({ ...previous, clicksValueEnd: event.target.value }));
+                            }}
+                            autoComplete="off"
+                            placeholder="Máx."
+                            aria-label="Cliques máximos"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <span className="form-label fw-medium d-block">Criado em</span>
+                    <div className="row g-2">
+                      <div className="col-12 col-sm-6">
+                        <label htmlFor="links-filter-created-from" className="form-label small mb-1">
+                          De
+                        </label>
+                        <input
+                          id="links-filter-created-from"
+                          type="datetime-local"
+                          className="form-control"
+                          value={draftAdvanced.createdFrom}
+                          onChange={(event) => {
+                            setDraftAdvanced((previous) => ({ ...previous, createdFrom: event.target.value }));
+                          }}
+                        />
+                      </div>
+                      <div className="col-12 col-sm-6">
+                        <label htmlFor="links-filter-created-to" className="form-label small mb-1">
+                          Até
+                        </label>
+                        <input
+                          id="links-filter-created-to"
+                          type="datetime-local"
+                          className="form-control"
+                          value={draftAdvanced.createdTo}
+                          onChange={(event) => {
+                            setDraftAdvanced((previous) => ({ ...previous, createdTo: event.target.value }));
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4">
+                    <label htmlFor="links-filter-active" className="form-label fw-medium">
+                      Status
+                    </label>
+                    <select
+                      id="links-filter-active"
+                      className="form-select"
+                      value={draftAdvanced.active}
+                      onChange={(event) => {
+                        const value = event.target.value as AdvancedFilterDraft['active'];
+                        setDraftAdvanced((previous) => ({ ...previous, active: value }));
+                      }}
+                    >
+                      <option value="">Todos</option>
+                      <option value="true">Somente ativos</option>
+                      <option value="false">Somente inativos</option>
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6 col-xl-4 d-flex align-items-end">
+                    <div className="form-check mb-0">
+                      <input
+                        id="links-filter-include-deleted"
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={draftAdvanced.includeDeleted}
+                        onChange={(event) => {
+                          setDraftAdvanced((previous) => ({
+                            ...previous,
+                            includeDeleted: event.target.checked,
+                          }));
+                        }}
+                      />
+                      <label className="form-check-label fw-medium" htmlFor="links-filter-include-deleted">
+                        Incluir excluídos (soft delete)
+                      </label>
+                    </div>
+                  </div>
+                  {draftAdvanced.includeDeleted ? (
+                    <div className="col-12 col-md-6 col-xl-8">
+                      <span className="form-label fw-medium d-block">Excluído em</span>
+                      <div className="row g-2">
+                        <div className="col-12 col-sm-6">
+                          <label htmlFor="links-filter-deleted-from" className="form-label small mb-1">
+                            De
+                          </label>
+                          <input
+                            id="links-filter-deleted-from"
+                            type="datetime-local"
+                            className="form-control"
+                            value={draftAdvanced.deletedFrom}
+                            onChange={(event) => {
+                              setDraftAdvanced((previous) => ({ ...previous, deletedFrom: event.target.value }));
+                            }}
+                          />
+                        </div>
+                        <div className="col-12 col-sm-6">
+                          <label htmlFor="links-filter-deleted-to" className="form-label small mb-1">
+                            Até
+                          </label>
+                          <input
+                            id="links-filter-deleted-to"
+                            type="datetime-local"
+                            className="form-control"
+                            value={draftAdvanced.deletedTo}
+                            onChange={(event) => {
+                              setDraftAdvanced((previous) => ({ ...previous, deletedTo: event.target.value }));
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div className={`card-footer p-4 ${styles.filterCardFooter}`}>
-              <div className="row">
-                <div className="col-12 col-lg-auto ms-auto">
-                  <div className="d-grid d-lg-block">
-                    <button type="submit" className="btn btn-success flex-shrink-0" disabled={isLoadingList}>
-                      Buscar
-                    </button>
-                  </div>
+              <div className="d-flex flex-column flex-lg-row gap-3 align-items-stretch align-items-lg-center justify-content-lg-between">
+                <div className="d-flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-outline-primary btn-sm"
+                    disabled={isLoadingList}
+                    onClick={() => {
+                      void fetchList(1, draftQuery, draftAdvanced);
+                    }}
+                  >
+                    Aplicar filtros
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary btn-sm"
+                    disabled={isLoadingList}
+                    onClick={() => {
+                      setDraftQuery('');
+                      setDraftAdvanced(INITIAL_ADVANCED_FILTER);
+                      void fetchList(1, '', INITIAL_ADVANCED_FILTER);
+                    }}
+                  >
+                    Limpar filtros
+                  </button>
                 </div>
-                <div className="col-12 col-lg-auto">
-                  <div className="d-grid d-lg-block">
-                    <button
-                      type="button"
-                      className="btn btn-primary flex-shrink-0"
-                      onClick={handleOpenCreateModal}
-                    >
-                      Adicionar link
-                    </button>
-                  </div>
+                <div className="d-flex flex-wrap gap-2 ms-lg-auto">
+                  <button type="submit" className="btn btn-success flex-shrink-0" disabled={isLoadingList}>
+                    Buscar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary flex-shrink-0"
+                    onClick={handleOpenCreateModal}
+                  >
+                    Adicionar link
+                  </button>
                 </div>
               </div>
             </div>
@@ -472,7 +812,7 @@ function Links(): JSX.Element {
                         className="page-link"
                         disabled={listMeta.page <= 1 || isLoadingList}
                         onClick={() => {
-                          void fetchList(listMeta.page - 1, appliedQuery);
+                          void fetchList(listMeta.page - 1, appliedQuery, appliedAdvanced);
                         }}
                       >
                         Anterior
@@ -489,7 +829,7 @@ function Links(): JSX.Element {
                         className="page-link"
                         disabled={listMeta.page >= listMeta.total_pages || isLoadingList}
                         onClick={() => {
-                          void fetchList(listMeta.page + 1, appliedQuery);
+                          void fetchList(listMeta.page + 1, appliedQuery, appliedAdvanced);
                         }}
                       >
                         Próxima
