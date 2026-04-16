@@ -1,5 +1,13 @@
 import Tooltip from 'bootstrap/js/dist/tooltip';
-import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  FormEvent,
+  RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { TrashIcon } from '../../assets/icons/TrashIcon';
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
@@ -20,6 +28,154 @@ import type { LinkFormState, LinkValidationErrors } from './linksFormUtils';
 import type { LinkItem, ListLinksMeta } from '../../types/link';
 
 const PAGE_SIZE = 10;
+
+type LinksListPanelKind =
+  | 'loading'
+  | 'error'
+  | 'empty-no-query'
+  | 'empty-search'
+  | 'table';
+
+function deduceListPanelKind(
+  isLoadingList: boolean,
+  listMeta: ListLinksMeta | null,
+  appliedQueryTrimmed: string,
+): LinksListPanelKind {
+  if (isLoadingList) {
+    return 'loading';
+  }
+  if (listMeta === null) {
+    return 'error';
+  }
+  if (listMeta.total === 0 && appliedQueryTrimmed.length === 0) {
+    return 'empty-no-query';
+  }
+  if (listMeta.total === 0) {
+    return 'empty-search';
+  }
+  return 'table';
+}
+
+interface LinksListPanelProps {
+  kind: LinksListPanelKind;
+  links: LinkItem[];
+  tableBodyRef: RefObject<HTMLTableSectionElement>;
+  isSubmitting: boolean;
+  isDeletingCode: string | null;
+  onRetryList: () => void;
+  onClearSearch: () => void;
+  onRequestDelete: (shortCode: string) => void;
+}
+
+function LinksListPanel({
+  kind,
+  links,
+  tableBodyRef,
+  isSubmitting,
+  isDeletingCode,
+  onRetryList,
+  onClearSearch,
+  onRequestDelete,
+}: Readonly<LinksListPanelProps>): JSX.Element {
+  switch (kind) {
+    case 'loading':
+      return (
+        <div className="p-4 text-center">
+          <output className="spinner-border" aria-live="polite" aria-label="Carregando links">
+            <span className="visually-hidden">Carregando links</span>
+          </output>
+        </div>
+      );
+    case 'error':
+      return (
+        <div className="p-4 text-center">
+          <p className="fw-medium mb-3">Não foi possível carregar a listagem.</p>
+          <button type="button" className="btn btn-outline-primary btn-sm" onClick={onRetryList}>
+            Tentar novamente
+          </button>
+        </div>
+      );
+    case 'empty-no-query':
+      return (
+        <div className="p-4 text-center">
+          <p className="fw-medium mb-2">Nenhum link cadastrado.</p>
+          <p className={`mb-0 ${styles.muted}`}>Cadastre um novo link para começar.</p>
+        </div>
+      );
+    case 'empty-search':
+      return (
+        <div className="p-4 text-center">
+          <p className="fw-medium mb-2">Nenhum link corresponde à busca.</p>
+          <p className={`mb-2 ${styles.muted}`}>Ajuste o termo ou limpe o campo de busca.</p>
+          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onClearSearch}>
+            Limpar busca
+          </button>
+        </div>
+      );
+    case 'table':
+      return (
+        <div className={`table-responsive ${styles.tableCard}`}>
+          <table className="table table-striped align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">Código</th>
+                <th scope="col">URL original</th>
+                <th scope="col">URL curta</th>
+                <th scope="col">Cliques</th>
+                <th scope="col" className="text-end">
+                  Ações
+                </th>
+              </tr>
+            </thead>
+            <tbody ref={tableBodyRef}>
+              {links.map((link) => (
+                <tr key={link.id}>
+                  <td className={styles.tableCell}>
+                    <span className="badge text-bg-light">{link.shortCode}</span>
+                  </td>
+                  <td className={`${styles.tableCell} ${styles.truncate}`} title={link.originalUrl}>
+                    {link.originalUrl}
+                  </td>
+                  <td className={`${styles.tableCell} ${styles.truncate}`} title={link.shortUrl}>
+                    {link.shortUrl}
+                  </td>
+                  <td className={styles.tableCell}>{link.clicks}</td>
+                  <td className="text-end">
+                    <div className={`justify-content-end ${styles.actions}`}>
+                      <button
+                        type="button"
+                        className={`btn btn-outline-danger btn-sm ${styles.deleteIconButton}`}
+                        data-bs-toggle="tooltip"
+                        data-bs-placement="top"
+                        data-bs-title="Excluir link"
+                        onClick={() => {
+                          onRequestDelete(link.shortCode);
+                        }}
+                        disabled={isSubmitting || isDeletingCode === link.shortCode}
+                        aria-label="Excluir link"
+                      >
+                        {isDeletingCode === link.shortCode ? (
+                          <output
+                            className="spinner-border spinner-border-sm"
+                            aria-live="polite"
+                            aria-label="Removendo"
+                          >
+                            <span className="visually-hidden">Removendo</span>
+                          </output>
+                        ) : (
+                          <TrashIcon className={styles.deleteIconSvg} />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+  }
+}
 
 function Links(): JSX.Element {
   const { showToast } = useToast();
@@ -207,117 +363,25 @@ function Links(): JSX.Element {
     }
   };
 
-  let listPanelContent: JSX.Element;
-  if (isLoadingList) {
-    listPanelContent = (
-      <div className="p-4 text-center">
-        <output className="spinner-border" aria-live="polite" aria-label="Carregando links">
-          <span className="visually-hidden">Carregando links</span>
-        </output>
-      </div>
-    );
-  } else if (!isLoadingList && listMeta === null) {
-    listPanelContent = (
-      <div className="p-4 text-center">
-        <p className="fw-medium mb-3">Não foi possível carregar a listagem.</p>
-        <button
-          type="button"
-          className="btn btn-outline-primary btn-sm"
-          onClick={() => {
-            void fetchList(1, appliedQuery);
-          }}
-        >
-          Tentar novamente
-        </button>
-      </div>
-    );
-  } else if (listMeta !== null && listMeta.total === 0 && appliedQuery.trim().length === 0) {
-    listPanelContent = (
-      <div className="p-4 text-center">
-        <p className="fw-medium mb-2">Nenhum link cadastrado.</p>
-        <p className={`mb-0 ${styles.muted}`}>Cadastre um novo link para começar.</p>
-      </div>
-    );
-  } else if (listMeta !== null && listMeta.total === 0 && appliedQuery.trim().length > 0) {
-    listPanelContent = (
-      <div className="p-4 text-center">
-        <p className="fw-medium mb-2">Nenhum link corresponde à busca.</p>
-        <p className={`mb-2 ${styles.muted}`}>Ajuste o termo ou limpe o campo de busca.</p>
-        <button
-          type="button"
-          className="btn btn-outline-secondary btn-sm"
-          onClick={() => {
-            setDraftQuery('');
-            void fetchList(1, '');
-          }}
-        >
-          Limpar busca
-        </button>
-      </div>
-    );
-  } else {
-    listPanelContent = (
-      <div className={`table-responsive ${styles.tableCard}`}>
-        <table className="table table-striped align-middle mb-0">
-          <thead>
-            <tr>
-              <th scope="col">Código</th>
-              <th scope="col">URL original</th>
-              <th scope="col">URL curta</th>
-              <th scope="col">Cliques</th>
-              <th scope="col" className="text-end">
-                Ações
-              </th>
-            </tr>
-          </thead>
-          <tbody ref={tableBodyRef}>
-            {links.map((link) => (
-              <tr key={link.id}>
-                <td className={styles.tableCell}>
-                  <span className="badge text-bg-light">{link.shortCode}</span>
-                </td>
-                <td className={`${styles.tableCell} ${styles.truncate}`} title={link.originalUrl}>
-                  {link.originalUrl}
-                </td>
-                <td className={`${styles.tableCell} ${styles.truncate}`} title={link.shortUrl}>
-                  {link.shortUrl}
-                </td>
-                <td className={styles.tableCell}>{link.clicks}</td>
-                <td className="text-end">
-                  <div className={`justify-content-end ${styles.actions}`}>
-                    <button
-                      type="button"
-                      className={`btn btn-outline-danger btn-sm ${styles.deleteIconButton}`}
-                      data-bs-toggle="tooltip"
-                      data-bs-placement="top"
-                      data-bs-title="Excluir link"
-                      onClick={() => {
-                        setDeleteConfirmCode(link.shortCode);
-                      }}
-                      disabled={isSubmitting || isDeletingCode === link.shortCode}
-                      aria-label="Excluir link"
-                    >
-                      {isDeletingCode === link.shortCode ? (
-                        <output
-                          className="spinner-border spinner-border-sm"
-                          aria-live="polite"
-                          aria-label="Removendo"
-                        >
-                          <span className="visually-hidden">Removendo</span>
-                        </output>
-                      ) : (
-                        <TrashIcon className={styles.deleteIconSvg} />
-                      )}
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
+  const listPanelKind = deduceListPanelKind(isLoadingList, listMeta, appliedQuery.trim());
+
+  const listPanelContent = (
+    <LinksListPanel
+      kind={listPanelKind}
+      links={links}
+      tableBodyRef={tableBodyRef}
+      isSubmitting={isSubmitting}
+      isDeletingCode={isDeletingCode}
+      onRetryList={() => {
+        void fetchList(1, appliedQuery);
+      }}
+      onClearSearch={() => {
+        setDraftQuery('');
+        void fetchList(1, '');
+      }}
+      onRequestDelete={setDeleteConfirmCode}
+    />
+  );
 
   return (
     <div className={styles.shell}>
