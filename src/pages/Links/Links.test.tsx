@@ -322,6 +322,26 @@ describe('Links', () => {
     expect(await screen.findByText('Link não encontrado para esta operação.')).toBeInTheDocument();
   });
 
+  it('coloca Buscar e Adicionar link no rodapé do card de filtros e usa form sem recarregar', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+
+    const filterForm = document.getElementById('links-filter-form');
+    expect(filterForm).not.toBeNull();
+    expect(filterForm?.tagName.toLowerCase()).toBe('form');
+
+    const buscar = screen.getByRole('button', { name: /^buscar$/i });
+    const adicionar = screen.getByRole('button', { name: /adicionar link/i });
+    expect(buscar.closest('.card-footer')).not.toBeNull();
+    expect(adicionar.closest('.card-footer')).not.toBeNull();
+
+    await user.click(buscar);
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+  });
+
   it('filtra a tabela localmente e permite limpar busca sem nova chamada à API', async () => {
     const user = userEvent.setup();
     mockedListLinks.mockResolvedValue({

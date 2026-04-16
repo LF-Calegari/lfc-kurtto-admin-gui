@@ -1,5 +1,5 @@
 /**
- * Sistema global de alertas/toasts (Bootstrap `alert`), com auto-fechamento configurável.
+ * Sistema global de toasts (Bootstrap `toast` com `toast-header` + `toast-body`), com auto-fechamento configurável.
  *
  * **Inventário / depreciação:** mensagens de sucesso e erro que antes ficavam inline no
  * conteúdo principal (por exemplo em `Links.tsx` com `alert` no `<main>`) foram migradas

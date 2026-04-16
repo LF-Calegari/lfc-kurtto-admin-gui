@@ -292,23 +292,24 @@ function Links(): JSX.Element {
       <div className={styles.mainColumn}>
         <AppHeader />
         <main className={styles.main}>
-          <div className={`${styles.pageHeader} d-flex flex-wrap justify-content-between align-items-start gap-3`}>
-            <div className="flex-grow-1 min-w-0">
-              <h1 className="h3 fw-medium mb-2">Links</h1>
-              <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
-            </div>
-            <button type="button" className="btn btn-primary flex-shrink-0" onClick={handleOpenCreateModal}>
-              Adicionar link
-            </button>
+          <div className={styles.pageHeader}>
+            <h1 className="h3 fw-medium mb-2">Links</h1>
+            <p className={`mb-0 ${styles.muted}`}>Gerencie seus links encurtados no painel.</p>
           </div>
 
-          <div className={`card shadow-sm ${styles.panel} mb-4`}>
+          <form
+            className={`card shadow-sm ${styles.panel} mb-4`}
+            id="links-filter-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+            }}
+          >
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
               <h2 className="h6 fw-medium mb-0">Buscar links</h2>
             </div>
             <div className="card-body p-4">
               <div className="row g-3 align-items-end">
-                <div className="col-12">
+                <div className="col-12 col-lg min-w-0">
                   <label htmlFor="links-search-query" className="form-label fw-medium">
                     Buscar na listagem
                   </label>
@@ -330,7 +331,29 @@ function Links(): JSX.Element {
                 </div>
               </div>
             </div>
-          </div>
+            <div className={`card-footer p-4 ${styles.filterCardFooter}`}>
+              <div className="row">
+                <div className="col-12 col-lg-auto ms-auto">
+                  <div className="d-grid d-lg-block">
+                    <button type="submit" className="btn btn-success flex-shrink-0">
+                      Buscar
+                    </button>
+                  </div>
+                </div>
+                <div className="col-12 col-lg-auto">
+                  <div className="d-grid d-lg-block">
+                    <button
+                      type="button"
+                      className="btn btn-primary flex-shrink-0"
+                      onClick={handleOpenCreateModal}
+                    >
+                      Adicionar link
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
 
           <div className={`card shadow-sm ${styles.panel} mb-4 ${styles.tableCard}`}>
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
