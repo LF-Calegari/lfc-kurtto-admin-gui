@@ -56,6 +56,8 @@ const mockedListLinks = listLinks as jest.MockedFunction<typeof listLinks>;
 const mockedCreateLink = createLink as jest.MockedFunction<typeof createLink>;
 const mockedDeleteLink = deleteLink as jest.MockedFunction<typeof deleteLink>;
 
+const defaultListMeta = { page: 1, limit: 10, total: 1, total_pages: 1 } as const;
+
 function renderLinks(): ReturnType<typeof render> {
   return render(
     <MemoryRouter>
@@ -83,6 +85,7 @@ describe('Links', () => {
           deletedAt: null,
         },
       ],
+      meta: defaultListMeta,
     });
     mockedCreateLink.mockResolvedValue({
       id: '2',
@@ -207,6 +210,9 @@ describe('Links', () => {
       });
     });
     expect(await screen.findByText('Link cadastrado com sucesso.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it('exclui com atualização da lista', async () => {
@@ -223,6 +229,9 @@ describe('Links', () => {
       expect(mockedDeleteLink).toHaveBeenCalledWith('abc123');
     });
     expect(await screen.findByText('Link removido com sucesso.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   it('exibe erro de indisponibilidade quando listagem falha por timeout/rede', async () => {
@@ -339,10 +348,15 @@ describe('Links', () => {
     expect(adicionar.closest('.card-footer')).not.toBeNull();
 
     await user.click(buscar);
-    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(2);
+    });
+    expect(mockedListLinks.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ page: 1, limit: 10 }),
+    );
   });
 
-  it('filtra a tabela localmente e permite limpar busca sem nova chamada à API', async () => {
+  it('não consulta o backend ao digitar; Buscar e Enter disparam listagem com q', async () => {
     const user = userEvent.setup();
     mockedListLinks.mockResolvedValue({
       data: [
@@ -358,38 +372,92 @@ describe('Links', () => {
           expiresAt: null,
           deletedAt: null,
         },
-        {
-          id: '2',
-          originalUrl: 'https://beta.com',
-          shortCode: 'beta99',
-          shortUrl: 'https://k.tt/beta99',
-          clicks: 0,
-          isActive: true,
-          createdAt: '2026-01-01T10:00:00.000Z',
-          updatedAt: '2026-01-01T10:00:00.000Z',
-          expiresAt: null,
-          deletedAt: null,
-        },
       ],
+      meta: { page: 1, limit: 10, total: 2, total_pages: 1 },
     });
 
     renderLinks();
 
     await screen.findByText('https://alpha.com');
-    expect(screen.getByText('https://beta.com')).toBeInTheDocument();
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
+    expect(mockedListLinks.mock.calls[0][0]).toEqual(expect.objectContaining({ page: 1, limit: 10 }));
 
     const searchInput = screen.getByRole('searchbox');
     await user.type(searchInput, 'beta');
-    expect(screen.queryByText('https://alpha.com')).not.toBeInTheDocument();
-    expect(screen.getByText('https://beta.com')).toBeInTheDocument();
+    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(2);
+    });
+    expect(mockedListLinks.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ page: 1, limit: 10, q: 'beta' }),
+    );
 
     await user.clear(searchInput);
-    await user.type(searchInput, 'sem-resultado-xyz');
-    expect(await screen.findByText(/nenhum link corresponde à busca/i)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /limpar busca/i }));
-    expect(searchInput).toHaveValue('');
-    expect(await screen.findByText('https://alpha.com')).toBeInTheDocument();
-    expect(mockedListLinks).toHaveBeenCalledTimes(1);
+    await user.type(searchInput, 'gamma');
+    await user.keyboard('{Enter}');
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(3);
+    });
+    expect(mockedListLinks.mock.calls[2][0]).toEqual(
+      expect.objectContaining({ page: 1, limit: 10, q: 'gamma' }),
+    );
+  });
+
+  it('troca de página reutiliza o termo de busca aplicado', async () => {
+    const user = userEvent.setup();
+    const rowP2 = {
+      id: '2',
+      originalUrl: 'https://page-two.com',
+      shortCode: 'pgtwo',
+      shortUrl: 'https://k.tt/pgtwo',
+      clicks: 0,
+      isActive: true,
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      expiresAt: null,
+      deletedAt: null,
+    };
+    mockedListLinks
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: '1',
+            originalUrl: 'https://alpha.com',
+            shortCode: 'alpha1',
+            shortUrl: 'https://k.tt/alpha1',
+            clicks: 1,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: { page: 1, limit: 10, total: 15, total_pages: 2 },
+      })
+      .mockResolvedValueOnce({
+        data: [rowP2],
+        meta: { page: 1, limit: 10, total: 15, total_pages: 2 },
+      })
+      .mockResolvedValue({
+        data: [rowP2],
+        meta: { page: 2, limit: 10, total: 15, total_pages: 2 },
+      });
+
+    renderLinks();
+    await screen.findByText('https://alpha.com');
+
+    await user.type(screen.getByRole('searchbox'), 'termo');
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.q === 'termo')).toBe(true);
+    });
+
+    await user.click(screen.getByRole('button', { name: /^próxima$/i }));
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.page === 2 && c[0]?.q === 'termo')).toBe(true);
+    });
   });
 });

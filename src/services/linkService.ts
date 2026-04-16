@@ -1,6 +1,13 @@
 import { AUTH_SESSION_STORAGE_KEY } from '../constants/storageKeys';
 
-import type { CreateLinkPayload, LinkItem, ListLinksResponse, UpdateLinkPayload } from '../types/link';
+import type {
+  CreateLinkPayload,
+  LinkItem,
+  ListLinksMeta,
+  ListLinksParams,
+  ListLinksResponse,
+  UpdateLinkPayload,
+} from '../types/link';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
@@ -187,6 +194,36 @@ function mapLinkItem(item: unknown): LinkItem {
   };
 }
 
+function readNonNegativeInt(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+function readPositiveInt(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+    return null;
+  }
+  return value;
+}
+
+function mapListMeta(body: Record<string, unknown>): ListLinksMeta {
+  const metaRaw = body.meta;
+  if (!metaRaw || typeof metaRaw !== 'object') {
+    throw new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', 500);
+  }
+  const meta = metaRaw as Record<string, unknown>;
+  const page = readPositiveInt(meta.page);
+  const limit = readPositiveInt(meta.limit);
+  const total = readNonNegativeInt(meta.total);
+  const totalPages = readNonNegativeInt(meta.total_pages);
+  if (page === null || limit === null || total === null || totalPages === null) {
+    throw new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', 500);
+  }
+  return { page, limit, total, total_pages: totalPages };
+}
+
 function mapListResponse(body: unknown): ListLinksResponse {
   if (!body || typeof body !== 'object') {
     throw new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', 500);
@@ -198,7 +235,37 @@ function mapListResponse(body: unknown): ListLinksResponse {
 
   return {
     data: record.data.map((item) => mapLinkItem(item)),
+    meta: mapListMeta(record),
   };
+}
+
+function buildListQuery(params?: Readonly<ListLinksParams>): string {
+  if (!params) {
+    return '';
+  }
+  const search = new URLSearchParams();
+  if (params.page !== undefined) {
+    search.set('page', String(params.page));
+  }
+  if (params.limit !== undefined) {
+    search.set('limit', String(params.limit));
+  }
+  if (params.q !== undefined && params.q.trim().length > 0) {
+    search.set('q', params.q.trim());
+  }
+  if (params.active === true) {
+    search.set('active', 'true');
+  }
+  if (params.active === false) {
+    search.set('active', 'false');
+  }
+  if (params.include_deleted === true) {
+    search.set('include_deleted', 'true');
+  }
+  if (params.include_deleted === false) {
+    search.set('include_deleted', 'false');
+  }
+  return search.toString();
 }
 
 async function request(path: string, init: RequestInit): Promise<Response> {
@@ -220,8 +287,10 @@ async function request(path: string, init: RequestInit): Promise<Response> {
   }
 }
 
-export async function listLinks(): Promise<ListLinksResponse> {
-  const response = await request(urlsCollectionPath(), { method: 'GET' });
+export async function listLinks(params?: Readonly<ListLinksParams>): Promise<ListLinksResponse> {
+  const query = buildListQuery(params);
+  const path = query.length > 0 ? `${urlsCollectionPath()}?${query}` : urlsCollectionPath();
+  const response = await request(path, { method: 'GET' });
   const body = await parseJsonBody(response);
   if (!response.ok) {
     throw mapApiError(response.status, body);

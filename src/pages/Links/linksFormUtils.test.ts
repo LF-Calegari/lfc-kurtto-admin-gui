@@ -4,26 +4,10 @@ import {
   buildCreatePayload,
   INITIAL_FORM,
   isValidHttpUrl,
-  linkMatchesSearch,
   LOCAL_VALIDATION_MESSAGE,
   toUiError,
   validateForm,
 } from './linksFormUtils';
-
-import type { LinkItem } from '../../types/link';
-
-const baseLink: LinkItem = {
-  id: '1',
-  originalUrl: 'https://example.com/path',
-  shortCode: 'abc12',
-  shortUrl: 'https://k.tt/abc12',
-  clicks: 0,
-  isActive: true,
-  createdAt: '2026-01-01T10:00:00.000Z',
-  updatedAt: '2026-01-01T10:00:00.000Z',
-  expiresAt: null,
-  deletedAt: null,
-};
 
 describe('linksFormUtils', () => {
   describe('isValidHttpUrl', () => {
@@ -84,20 +68,4 @@ describe('linksFormUtils', () => {
     });
   });
 
-  describe('linkMatchesSearch', () => {
-    it('com query vazia retorna true', () => {
-      expect(linkMatchesSearch(baseLink, '')).toBe(true);
-      expect(linkMatchesSearch(baseLink, '   ')).toBe(true);
-    });
-
-    it('filtra por código, URL original ou curta (case insensitive)', () => {
-      expect(linkMatchesSearch(baseLink, 'abc12')).toBe(true);
-      expect(linkMatchesSearch(baseLink, 'EXAMPLE')).toBe(true);
-      expect(linkMatchesSearch(baseLink, 'k.tt')).toBe(true);
-    });
-
-    it('retorna false quando não há match', () => {
-      expect(linkMatchesSearch(baseLink, 'zzz')).toBe(false);
-    });
-  });
 });

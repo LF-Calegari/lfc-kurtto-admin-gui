@@ -11,8 +11,25 @@ export interface LinkItem {
   deletedAt: string | null;
 }
 
+export interface ListLinksMeta {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+}
+
 export interface ListLinksResponse {
   data: LinkItem[];
+  meta: ListLinksMeta;
+}
+
+/** Parâmetros opcionais de `GET /api/v1/urls` (kurtto-api). */
+export interface ListLinksParams {
+  page?: number;
+  limit?: number;
+  q?: string;
+  active?: boolean;
+  include_deleted?: boolean;
 }
 
 export interface CreateLinkPayload {

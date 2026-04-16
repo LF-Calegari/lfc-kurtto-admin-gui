@@ -38,6 +38,12 @@
   min-width: 0;
 }
 
+.paginationBar {
+  padding: 16px;
+  background-color: transparent;
+  transition: opacity 150ms ease;
+}
+
 .actions {
   display: flex;
   gap: 8px;

@@ -1,6 +1,6 @@
 import { LinkApiError } from '../../services/linkService';
 
-import type { CreateLinkPayload, LinkItem } from '../../types/link';
+import type { CreateLinkPayload } from '../../types/link';
 
 export interface LinkFormState {
   originalUrl: string;
@@ -54,14 +54,3 @@ export function toUiError(error: unknown): string {
   return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
 }
 
-export function linkMatchesSearch(link: LinkItem, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return true;
-  }
-  return (
-    link.shortCode.toLowerCase().includes(q) ||
-    link.originalUrl.toLowerCase().includes(q) ||
-    link.shortUrl.toLowerCase().includes(q)
-  );
-}
