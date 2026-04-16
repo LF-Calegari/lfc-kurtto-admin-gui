@@ -484,10 +484,9 @@ function Links(): JSX.Element {
                 </div>
               </div>
 
-              <div
+              <section
                 id="links-advanced-filters"
                 className={filtersExpanded ? 'mt-4 pt-2 border-top' : 'd-none'}
-                role="region"
                 aria-hidden={!filtersExpanded}
                 aria-labelledby="links-advanced-filters-toggle"
               >
@@ -750,7 +749,7 @@ function Links(): JSX.Element {
                     </div>
                   ) : null}
                 </div>
-              </div>
+              </section>
             </div>
             <div className={`card-footer p-4 ${styles.filterCardFooter}`}>
               <div className="d-flex flex-column flex-lg-row gap-3 align-items-stretch align-items-lg-center justify-content-lg-between">

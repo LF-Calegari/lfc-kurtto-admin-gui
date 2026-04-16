@@ -467,6 +467,7 @@ describe('Links', () => {
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    expect(document.getElementById('links-advanced-filters')?.tagName.toLowerCase()).toBe('section');
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'xcode');
     await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
