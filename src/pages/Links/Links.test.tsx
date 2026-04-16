@@ -100,6 +100,28 @@ describe('Links', () => {
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
   });
 
+  it('abre o modal com diálogo semântico e fecha ao cancelar, no backdrop e com Escape', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /adicionar link/i }));
+    expect(screen.getByRole('dialog', { name: /cadastrar link/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^cancelar$/i }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /adicionar link/i }));
+    const backdrop = document.querySelector('.modal-backdrop');
+    expect(backdrop).not.toBeNull();
+    await user.click(backdrop as HTMLElement);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /adicionar link/i }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('bloqueia envio inválido no modal e exibe mensagem', async () => {
     const user = userEvent.setup();
     renderLinks();
@@ -112,6 +134,51 @@ describe('Links', () => {
       screen.getAllByText('Revise os campos obrigatórios antes de continuar.').length,
     ).toBeGreaterThan(0);
     expect(mockedCreateLink).not.toHaveBeenCalled();
+  });
+
+  it('não fecha o modal com Escape enquanto o envio está em andamento', async () => {
+    const user = userEvent.setup();
+    const pendingCreate: {
+      resolve?: (value: Awaited<ReturnType<typeof createLink>>) => void;
+    } = {};
+    mockedCreateLink.mockImplementationOnce(
+      () =>
+        new Promise<Awaited<ReturnType<typeof createLink>>>((resolve) => {
+          pendingCreate.resolve = resolve;
+        }),
+    );
+
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    await user.click(screen.getByRole('button', { name: /adicionar link/i }));
+    await user.type(screen.getByLabelText(/^url original$/i), 'https://pendente.com');
+    await user.click(screen.getByRole('button', { name: /^cadastrar link$/i }));
+
+    await waitFor(() => {
+      expect(mockedCreateLink).toHaveBeenCalled();
+    });
+    expect(await screen.findByLabelText('Salvando')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    pendingCreate.resolve?.({
+      id: '9',
+      originalUrl: 'https://pendente.com',
+      shortCode: 'p1',
+      shortUrl: 'https://k.tt/p1',
+      clicks: 0,
+      isActive: true,
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      expiresAt: null,
+      deletedAt: null,
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
   });
 
   it('cadastra link válido pelo modal e exibe sucesso', async () => {

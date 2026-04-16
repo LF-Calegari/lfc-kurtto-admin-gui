@@ -3,74 +3,20 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
 import { useToast } from '../../contexts/ToastContext';
-import { createLink, deleteLink, LinkApiError, listLinks } from '../../services/linkService';
+import { createLink, deleteLink, listLinks } from '../../services/linkService';
 
 import styles from './Links.module.css';
+import {
+  buildCreatePayload,
+  INITIAL_FORM,
+  linkMatchesSearch,
+  LOCAL_VALIDATION_MESSAGE,
+  toUiError,
+  validateForm,
+} from './linksFormUtils';
 
-import type { CreateLinkPayload, LinkItem } from '../../types/link';
-
-interface LinkFormState {
-  originalUrl: string;
-}
-
-interface LinkValidationErrors {
-  originalUrl?: string;
-}
-
-const INITIAL_FORM: LinkFormState = { originalUrl: '' };
-const LOCAL_VALIDATION_MESSAGE = 'Revise os campos obrigatórios antes de continuar.';
-
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const normalized = new URL(value.trim());
-    return normalized.protocol === 'http:' || normalized.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
-function validateForm(form: LinkFormState): LinkValidationErrors {
-  const errors: LinkValidationErrors = {};
-  const urlValue = form.originalUrl.trim();
-
-  if (!urlValue) {
-    errors.originalUrl = LOCAL_VALIDATION_MESSAGE;
-  } else if (!isValidHttpUrl(urlValue)) {
-    errors.originalUrl = 'Informe uma URL válida.';
-  } else if (urlValue.length > 2048) {
-    errors.originalUrl = LOCAL_VALIDATION_MESSAGE;
-  }
-
-  return errors;
-}
-
-function buildCreatePayload(form: LinkFormState): CreateLinkPayload {
-  return {
-    originalUrl: form.originalUrl.trim(),
-  };
-}
-
-function toUiError(error: unknown): string {
-  if (error instanceof LinkApiError) {
-    return error.message;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'Ocorreu um erro inesperado. Tente novamente em instantes.';
-}
-
-function linkMatchesSearch(link: LinkItem, query: string): boolean {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return true;
-  }
-  return (
-    link.shortCode.toLowerCase().includes(q) ||
-    link.originalUrl.toLowerCase().includes(q) ||
-    link.shortUrl.toLowerCase().includes(q)
-  );
-}
+import type { LinkFormState, LinkValidationErrors } from './linksFormUtils';
+import type { LinkItem } from '../../types/link';
 
 function Links(): JSX.Element {
   const { showToast } = useToast();
@@ -339,19 +285,19 @@ function Links(): JSX.Element {
             <>
               <div
                 className={`modal-backdrop fade show ${styles.modalBackdrop}`}
-                role="presentation"
+                aria-hidden="true"
                 onClick={() => {
                   if (!isSubmitting) {
                     handleCloseCreateModal();
                   }
                 }}
               />
-              <div
-                className={`modal fade show d-block ${styles.modalRoot}`}
+              <dialog
+                className={`modal fade show d-block border-0 bg-transparent p-0 ${styles.modalRoot}`}
                 tabIndex={-1}
-                role="dialog"
-                aria-modal="true"
                 aria-labelledby="create-link-modal-title"
+                aria-modal="true"
+                open
               >
                 <div className="modal-dialog modal-dialog-centered modal-lg">
                   <div className="modal-content">
@@ -422,7 +368,7 @@ function Links(): JSX.Element {
                     </form>
                   </div>
                 </div>
-              </div>
+              </dialog>
             </>
           )}
         </main>
