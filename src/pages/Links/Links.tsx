@@ -252,34 +252,30 @@ function Links(): JSX.Element {
                 <td className={styles.tableCell}>{link.clicks}</td>
                 <td className="text-end">
                   <div className={`justify-content-end ${styles.actions}`}>
-                    <span
-                      className={`d-inline-block ${styles.deleteTooltipTarget}`}
+                    <button
+                      type="button"
+                      className={`btn btn-outline-danger btn-sm ${styles.deleteIconButton}`}
                       data-bs-toggle="tooltip"
                       data-bs-placement="top"
                       data-bs-title="Excluir link"
+                      onClick={() => {
+                        setDeleteConfirmCode(link.shortCode);
+                      }}
+                      disabled={isSubmitting || isDeletingCode === link.shortCode}
+                      aria-label="Excluir link"
                     >
-                      <button
-                        type="button"
-                        className={`btn btn-outline-danger btn-sm ${styles.deleteIconButton}`}
-                        onClick={() => {
-                          setDeleteConfirmCode(link.shortCode);
-                        }}
-                        disabled={isSubmitting || isDeletingCode === link.shortCode}
-                        aria-label="Excluir link"
-                      >
-                        {isDeletingCode === link.shortCode ? (
-                          <output
-                            className="spinner-border spinner-border-sm"
-                            aria-live="polite"
-                            aria-label="Removendo"
-                          >
-                            <span className="visually-hidden">Removendo</span>
-                          </output>
-                        ) : (
-                          <TrashIcon className={styles.deleteIconSvg} />
-                        )}
-                      </button>
-                    </span>
+                      {isDeletingCode === link.shortCode ? (
+                        <output
+                          className="spinner-border spinner-border-sm"
+                          aria-live="polite"
+                          aria-label="Removendo"
+                        >
+                          <span className="visually-hidden">Removendo</span>
+                        </output>
+                      ) : (
+                        <TrashIcon className={styles.deleteIconSvg} />
+                      )}
+                    </button>
                   </div>
                 </td>
               </tr>
