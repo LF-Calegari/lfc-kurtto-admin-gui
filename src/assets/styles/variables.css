@@ -1,4 +1,7 @@
 :root {
+  /* Altura do header admin (AppHeader); usada por toasts fixos e deve refletir .header min-height */
+  --app-header-height: 64px;
+
   /* Override Bootstrap theme — identidade Kurtto */
   --bs-primary: #e8593c;
   --bs-primary-rgb: 232, 89, 60;

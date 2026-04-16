@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { SessionBootstrapSpinner } from './components/ui/SessionBootstrapSpinner/SessionBootstrapSpinner';
 import { ROUTES } from './constants/routes';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Home from './pages/Home/Home';
 import Links from './pages/Links/Links';
 import { LoginRoute } from './routes/LoginRoute';
@@ -39,7 +40,9 @@ function App(): JSX.Element {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );
