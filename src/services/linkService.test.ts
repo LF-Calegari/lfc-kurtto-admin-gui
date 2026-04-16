@@ -1,6 +1,13 @@
 import { AUTH_SESSION_STORAGE_KEY } from '../constants/storageKeys';
 
-import { createLink, deleteLink, LinkApiError, listLinks, updateLink } from './linkService';
+import {
+  buildListQuery,
+  createLink,
+  deleteLink,
+  LinkApiError,
+  listLinks,
+  updateLink,
+} from './linkService';
 
 function jsonResponse(body: unknown, status = 200): Response {
   const ok = status >= 200 && status < 300;
@@ -20,6 +27,45 @@ function textResponse(rawText: string, status: number): Response {
     text: async () => rawText,
   } as Response;
 }
+
+describe('buildListQuery', () => {
+  it('serializa filtros campo__operador e paginação', () => {
+    const query = buildListQuery({
+      page: 2,
+      limit: 5,
+      q: '  beta  ',
+      short_code__eq: 'abc',
+      clicks__between: '1,10',
+      created_at__lt: '2026-01-01T00:00:00.000Z',
+      active: true,
+      include_deleted: false,
+    });
+    const params = new URLSearchParams(query);
+    expect(params.get('page')).toBe('2');
+    expect(params.get('limit')).toBe('5');
+    expect(params.get('q')).toBe('beta');
+    expect(params.get('short_code__eq')).toBe('abc');
+    expect(params.get('clicks__between')).toBe('1,10');
+    expect(params.get('created_at__lt')).toBe('2026-01-01T00:00:00.000Z');
+    expect(params.get('active')).toBe('true');
+    expect(params.get('include_deleted')).toBe('false');
+  });
+
+  it('omite strings vazias', () => {
+    const query = buildListQuery({
+      page: 1,
+      limit: 10,
+      q: '   ',
+      id__eq: '',
+      original_url__like: '  ',
+    });
+    expect(query).toContain('page=1');
+    expect(query).toContain('limit=10');
+    expect(query.includes('q=')).toBe(false);
+    expect(query.includes('id__eq')).toBe(false);
+    expect(query.includes('original_url__like')).toBe(false);
+  });
+});
 
 describe('linkService', () => {
   const originalFetch = global.fetch;

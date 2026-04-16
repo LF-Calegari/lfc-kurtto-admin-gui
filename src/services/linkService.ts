@@ -239,7 +239,28 @@ function mapListResponse(body: unknown): ListLinksResponse {
   };
 }
 
-function buildListQuery(params?: Readonly<ListLinksParams>): string {
+function setOptionalTrimmedString(search: URLSearchParams, key: string, value: string | undefined): void {
+  if (value === undefined) {
+    return;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length > 0) {
+    search.set(key, trimmed);
+  }
+}
+
+function setOptionalFiniteNumber(search: URLSearchParams, key: string, value: number | undefined): void {
+  if (value === undefined) {
+    return;
+  }
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return;
+  }
+  search.set(key, String(value));
+}
+
+/** Monta a query string de `GET /api/v1/urls` a partir dos parâmetros tipados (inclui filtros `campo__operador`). */
+export function buildListQuery(params?: Readonly<ListLinksParams>): string {
   if (!params) {
     return '';
   }
@@ -250,9 +271,25 @@ function buildListQuery(params?: Readonly<ListLinksParams>): string {
   if (params.limit !== undefined) {
     search.set('limit', String(params.limit));
   }
-  if (params.q !== undefined && params.q.trim().length > 0) {
-    search.set('q', params.q.trim());
-  }
+  setOptionalTrimmedString(search, 'q', params.q);
+  setOptionalTrimmedString(search, 'id__eq', params.id__eq);
+  setOptionalTrimmedString(search, 'original_url__eq', params.original_url__eq);
+  setOptionalTrimmedString(search, 'original_url__like', params.original_url__like);
+  setOptionalTrimmedString(search, 'short_code__eq', params.short_code__eq);
+  setOptionalTrimmedString(search, 'short_code__like', params.short_code__like);
+  setOptionalFiniteNumber(search, 'clicks__eq', params.clicks__eq);
+  setOptionalFiniteNumber(search, 'clicks__lt', params.clicks__lt);
+  setOptionalFiniteNumber(search, 'clicks__gt', params.clicks__gt);
+  setOptionalFiniteNumber(search, 'clicks__gte', params.clicks__gte);
+  setOptionalFiniteNumber(search, 'clicks__lte', params.clicks__lte);
+  setOptionalTrimmedString(search, 'clicks__between', params.clicks__between);
+  setOptionalTrimmedString(search, 'created_at__eq', params.created_at__eq);
+  setOptionalTrimmedString(search, 'created_at__lt', params.created_at__lt);
+  setOptionalTrimmedString(search, 'created_at__gt', params.created_at__gt);
+  setOptionalTrimmedString(search, 'created_at__between', params.created_at__between);
+  setOptionalTrimmedString(search, 'deleted_at__lt', params.deleted_at__lt);
+  setOptionalTrimmedString(search, 'deleted_at__gt', params.deleted_at__gt);
+  setOptionalTrimmedString(search, 'deleted_at__between', params.deleted_at__between);
   if (params.active === true) {
     search.set('active', 'true');
   }
