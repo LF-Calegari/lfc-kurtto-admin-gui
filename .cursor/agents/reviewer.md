@@ -138,14 +138,13 @@ Para validar PR que depende de SonarCloud, use somente token em:
 Constantes deste repositório:
 
 - `SONAR_ORGANIZATION="lf-calegari"`
-- `SONAR_PROJECT_KEY="LF-Calegari_lfc-kurtto-admin-gui"`
+- **Project key:** o valor em **GitHub Variables** / Sonar deve coincidir com a UI do SonarCloud; veja `README.md` (seção SonarCloud) e o script `scripts/wait-sonar-pr-quality-gate.sh` (candidatos `kurrto` vs `kurtto`).
 
 Antes de qualquer chamada à API do SonarCloud, execute exatamente:
 
 ```bash
 SONAR_TOKEN_PATH="./.credentials/sonar.token"
 SONAR_ORGANIZATION="lf-calegari"
-SONAR_PROJECT_KEY="LF-Calegari_lfc-kurtto-admin-gui"
 
 if [ ! -f "$SONAR_TOKEN_PATH" ]; then
   echo "ERRO: token do SonarCloud não encontrado em $SONAR_TOKEN_PATH" >&2
@@ -160,16 +159,14 @@ if [ -z "$SONAR_TOKEN" ]; then
 fi
 ```
 
-Para checar Quality Gate de PR (obrigatório):
+Para checar Quality Gate de PR (**obrigatório — use o script** para não repetir dezenas de polls com project key errada):
 
 ```bash
 PR_NUMBER="<numero-do-pr>"
-
-curl -sS -u "$SONAR_TOKEN:" \
-  "https://sonarcloud.io/api/qualitygates/project_status?organization=${SONAR_ORGANIZATION}&projectKey=${SONAR_PROJECT_KEY}&pullRequest=${PR_NUMBER}"
+SONAR_TOKEN_PATH="./.credentials/sonar.token" npm run sonar:pr-gate -- "$PR_NUMBER"
 ```
 
-Se o status não for `OK`, coletar evidências complementares:
+Se o status não for `OK`, coletar evidências complementares (use o `SONAR_PROJECT_KEY` que o script logou):
 
 ```bash
 curl -sS -u "$SONAR_TOKEN:" \
