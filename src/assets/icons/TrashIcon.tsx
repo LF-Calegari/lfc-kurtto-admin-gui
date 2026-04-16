@@ -2,7 +2,7 @@ interface TrashIconProps {
   className?: string;
 }
 
-export function TrashIcon({ className }: TrashIconProps): JSX.Element {
+export function TrashIcon({ className }: Readonly<TrashIconProps>): JSX.Element {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

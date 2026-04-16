@@ -22,7 +22,8 @@
     "format": "prettier --write \"{src,public}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"{src,public}/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "audit:high": "npm audit --audit-level=high --omit=dev",
-    "audit:guard": "node scripts/audit-guard.cjs"
+    "audit:guard": "node scripts/audit-guard.cjs",
+    "sonar:pr-gate": "bash scripts/wait-sonar-pr-quality-gate.sh"
   },
   "browserslist": {
     "production": [

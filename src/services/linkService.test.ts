@@ -36,6 +36,8 @@ describe('linkService', () => {
     localStorage.clear();
   });
 
+  const defaultListMeta = { page: 1, limit: 10, total: 1, total_pages: 1 } as const;
+
   it('listLinks envia bearer token e mapeia resposta', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       jsonResponse({
@@ -53,6 +55,7 @@ describe('linkService', () => {
             deletedAt: null,
           },
         ],
+        meta: defaultListMeta,
       }),
     );
     global.fetch = fetchMock;
@@ -60,12 +63,59 @@ describe('linkService', () => {
     const result = await listLinks();
 
     expect(result.data).toHaveLength(1);
+    expect(result.meta).toEqual(defaultListMeta);
     expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         Authorization: 'Bearer jwt-token',
       },
+    });
+  });
+
+  it('listLinks envia query string com page, limit e q', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      jsonResponse({
+        data: [],
+        meta: { page: 2, limit: 5, total: 0, total_pages: 0 },
+      }),
+    );
+    global.fetch = fetchMock;
+
+    await listLinks({ page: 2, limit: 5, q: '  beta  ' });
+
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls?page=2&limit=5&q=beta', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer jwt-token',
+      },
+    });
+  });
+
+  it('falha quando resposta da lista não contém meta', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            id: '1',
+            originalUrl: 'https://example.com',
+            shortCode: 'abc123',
+            shortUrl: 'https://k.tt/abc123',
+            clicks: 7,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+      }),
+    );
+
+    await expect(listLinks()).rejects.toMatchObject({
+      status: 500,
+      message: 'Ocorreu um erro inesperado. Tente novamente em instantes.',
     });
   });
 

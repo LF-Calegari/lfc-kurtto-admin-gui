@@ -94,6 +94,18 @@ Se `SONAR_TOKEN`, `SONAR_ORGANIZATION` ou `SONAR_PROJECT_KEY` estiverem ausentes
 
 O escopo de análise e cobertura (LCOV após `npm test -- --coverage`) está em `sonar-project.properties`.
 
+### Project key e Quality Gate na API (local / CI)
+
+- O valor de **`SONAR_PROJECT_KEY`** nas variables do GitHub deve ser **idêntico** ao **Project key** exibido no SonarCloud (Administration do projeto). Se forem diferentes, a API `qualitygates/project_status` retorna `Component ... not found` para a PR — **não** é “análise demorando”; é chave errada.
+- Neste repositório já houve projeto registrado como `LF-Calegari_lfc-kurrto-admin-gui` (grafia **kurrto** com *rr*). Se a chave “correta” ortograficamente não funcionar, compare com a UI do Sonar.
+- Para aguardar o gate sem adivinhar a chave, use:
+
+```bash
+SONAR_TOKEN_PATH=./.credentials/sonar.token npm run sonar:pr-gate -- 42
+```
+
+O script `scripts/wait-sonar-pr-quality-gate.sh` tenta candidatas conhecidas, falha rápido se nenhuma bater, e só então faz polling (intervalo e timeout configuráveis por variáveis de ambiente — ver cabeçalho do script).
+
 ## Estrutura principal
 
 - `public/` — HTML estático e manifest

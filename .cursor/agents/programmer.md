@@ -549,14 +549,13 @@ Para validar PR que depende de SonarCloud, use somente token em:
 Constantes deste repositório:
 
 - `SONAR_ORGANIZATION="lf-calegari"`
-- `SONAR_PROJECT_KEY="LF-Calegari_lfc-kurtto-admin-gui"`
+- **Project key** no SonarCloud: use o valor **exato** da UI (Administration → projeto). Pode ser `LF-Calegari_lfc-kurrto-admin-gui` (**kurrto** com *rr*) ou `LF-Calegari_lfc-kurtto-admin-gui` — se a API responder `Component ... not found`, a chave não bate com o projeto analisado.
 
 Antes de qualquer chamada à API do SonarCloud, execute exatamente:
 
 ```bash
 SONAR_TOKEN_PATH="./.credentials/sonar.token"
 SONAR_ORGANIZATION="lf-calegari"
-SONAR_PROJECT_KEY="LF-Calegari_lfc-kurtto-admin-gui"
 
 if [ ! -f "$SONAR_TOKEN_PATH" ]; then
   echo "ERRO: token do SonarCloud não encontrado em $SONAR_TOKEN_PATH" >&2
@@ -571,16 +570,14 @@ if [ -z "$SONAR_TOKEN" ]; then
 fi
 ```
 
-Para checar Quality Gate de PR (obrigatório):
+Para checar Quality Gate de PR (**preferido** — resolve project key e só então faz polling):
 
 ```bash
 PR_NUMBER="<numero-do-pr>"
-
-curl -sS -u "$SONAR_TOKEN:" \
-  "https://sonarcloud.io/api/qualitygates/project_status?organization=${SONAR_ORGANIZATION}&projectKey=${SONAR_PROJECT_KEY}&pullRequest=${PR_NUMBER}"
+SONAR_TOKEN_PATH="./.credentials/sonar.token" npm run sonar:pr-gate -- "$PR_NUMBER"
 ```
 
-Se o status não for `OK`, coletar evidências complementares:
+Após o script imprimir `Sonar: usando projectKey=...`, use essa mesma chave em chamadas manuais. Se o status não for `OK`, coletar issues na PR (substitua `SONAR_PROJECT_KEY` pelo key resolvido):
 
 ```bash
 curl -sS -u "$SONAR_TOKEN:" \
