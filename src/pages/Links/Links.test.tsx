@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
@@ -6,6 +6,18 @@ import { ToastProvider } from '../../contexts/ToastContext';
 import { createLink, deleteLink, LinkApiError, listLinks } from '../../services/linkService';
 
 import Links from './Links';
+
+jest.mock('bootstrap/js/dist/tooltip', () => {
+  function MockTooltip() {
+    return {
+      dispose: jest.fn(),
+    };
+  }
+  return {
+    __esModule: true,
+    default: MockTooltip,
+  };
+});
 
 jest.mock('../../services/linkService', () => ({
   listLinks: jest.fn(),
@@ -85,7 +97,6 @@ describe('Links', () => {
       deletedAt: null,
     });
     mockedDeleteLink.mockResolvedValue();
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -203,7 +214,10 @@ describe('Links', () => {
     renderLinks();
 
     await screen.findByText('https://example.com');
-    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+    const deleteDialog = screen.getByRole('dialog', { name: /excluir link/i });
+    expect(deleteDialog).toBeInTheDocument();
+    await user.click(within(deleteDialog).getByRole('button', { name: /confirmar exclusão/i }));
 
     await waitFor(() => {
       expect(mockedDeleteLink).toHaveBeenCalledWith('abc123');
@@ -282,12 +296,14 @@ describe('Links', () => {
 
   it('não chama exclusão quando o usuário cancela a confirmação', async () => {
     const user = userEvent.setup();
-    jest.spyOn(window, 'confirm').mockReturnValue(false);
 
     renderLinks();
 
     await screen.findByText('https://example.com');
-    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+    const deleteDialog = screen.getByRole('dialog', { name: /excluir link/i });
+    expect(deleteDialog).toBeInTheDocument();
+    await user.click(within(deleteDialog).getByRole('button', { name: /^cancelar$/i }));
 
     expect(mockedDeleteLink).not.toHaveBeenCalled();
   });
@@ -299,7 +315,9 @@ describe('Links', () => {
     renderLinks();
 
     await screen.findByText('https://example.com');
-    await user.click(screen.getByRole('button', { name: /^excluir$/i }));
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+    const deleteDialog = screen.getByRole('dialog', { name: /excluir link/i });
+    await user.click(within(deleteDialog).getByRole('button', { name: /confirmar exclusão/i }));
 
     expect(await screen.findByText('Link não encontrado para esta operação.')).toBeInTheDocument();
   });

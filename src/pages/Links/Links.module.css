@@ -38,6 +38,28 @@
   gap: 8px;
 }
 
+.deleteTooltipTarget {
+  line-height: 0;
+}
+
+.deleteIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 8px;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.deleteIconSvg {
+  flex-shrink: 0;
+}
+
 .muted {
   color: var(--color-stone);
 }

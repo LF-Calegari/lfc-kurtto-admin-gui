@@ -1,5 +1,7 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Tooltip from 'bootstrap/js/dist/tooltip';
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
+import { TrashIcon } from '../../assets/icons/TrashIcon';
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
 import { useToast } from '../../contexts/ToastContext';
@@ -28,7 +30,9 @@ function Links(): JSX.Element {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [form, setForm] = useState<LinkFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<LinkValidationErrors>({});
+  const [deleteConfirmCode, setDeleteConfirmCode] = useState<string | null>(null);
   const createUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
 
   const loadLinks = useCallback(async () => {
     setIsLoadingList(true);
@@ -62,7 +66,7 @@ function Links(): JSX.Element {
   }, [isSubmitting]);
 
   useEffect(() => {
-    if (!isCreateModalOpen) {
+    if (!isCreateModalOpen && deleteConfirmCode === null) {
       return;
     }
     const previousOverflow = document.body.style.overflow;
@@ -70,7 +74,7 @@ function Links(): JSX.Element {
     return () => {
       document.body.style.overflow = previousOverflow;
     };
-  }, [isCreateModalOpen]);
+  }, [isCreateModalOpen, deleteConfirmCode]);
 
   useEffect(() => {
     if (!isCreateModalOpen) {
@@ -98,6 +102,45 @@ function Links(): JSX.Element {
       document.removeEventListener('keydown', onKeyDown);
     };
   }, [isCreateModalOpen, handleCloseCreateModal]);
+
+  const handleCloseDeleteModal = useCallback((): void => {
+    if (isDeletingCode !== null) {
+      return;
+    }
+    setDeleteConfirmCode(null);
+  }, [isDeletingCode]);
+
+  useEffect(() => {
+    if (deleteConfirmCode === null) {
+      return;
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        handleCloseDeleteModal();
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [deleteConfirmCode, handleCloseDeleteModal]);
+
+  useLayoutEffect(() => {
+    const root = tableBodyRef.current;
+    if (!root) {
+      return;
+    }
+    const triggers = root.querySelectorAll<HTMLElement>('[data-bs-toggle="tooltip"]');
+    const instances: InstanceType<typeof Tooltip>[] = [];
+    triggers.forEach((trigger) => {
+      instances.push(new Tooltip(trigger));
+    });
+    return () => {
+      instances.forEach((instance) => {
+        instance.dispose();
+      });
+    };
+  }, [links, searchQuery, isDeletingCode, isLoadingList]);
 
   const filteredLinks = useMemo(
     () => links.filter((link) => linkMatchesSearch(link, searchQuery)),
@@ -129,15 +172,16 @@ function Links(): JSX.Element {
     }
   };
 
-  const handleDelete = async (code: string): Promise<void> => {
-    const confirmed = globalThis.confirm('Deseja remover este link?');
-    if (!confirmed) {
+  const handleConfirmDelete = async (): Promise<void> => {
+    if (deleteConfirmCode === null) {
       return;
     }
+    const code = deleteConfirmCode;
     setIsDeletingCode(code);
     try {
       await deleteLink(code);
       showToast({ variant: 'success', message: 'Link removido com sucesso.' });
+      setDeleteConfirmCode(null);
       await loadLinks();
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
@@ -193,7 +237,7 @@ function Links(): JSX.Element {
               </th>
             </tr>
           </thead>
-          <tbody>
+          <tbody ref={tableBodyRef}>
             {filteredLinks.map((link) => (
               <tr key={link.id}>
                 <td className={styles.tableCell}>
@@ -208,16 +252,34 @@ function Links(): JSX.Element {
                 <td className={styles.tableCell}>{link.clicks}</td>
                 <td className="text-end">
                   <div className={`justify-content-end ${styles.actions}`}>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm"
-                      onClick={() => {
-                        void handleDelete(link.shortCode);
-                      }}
-                      disabled={isSubmitting || isDeletingCode === link.shortCode}
+                    <span
+                      className={`d-inline-block ${styles.deleteTooltipTarget}`}
+                      data-bs-toggle="tooltip"
+                      data-bs-placement="top"
+                      data-bs-title="Excluir link"
                     >
-                      {isDeletingCode === link.shortCode ? 'Removendo...' : 'Excluir'}
-                    </button>
+                      <button
+                        type="button"
+                        className={`btn btn-outline-danger btn-sm ${styles.deleteIconButton}`}
+                        onClick={() => {
+                          setDeleteConfirmCode(link.shortCode);
+                        }}
+                        disabled={isSubmitting || isDeletingCode === link.shortCode}
+                        aria-label="Excluir link"
+                      >
+                        {isDeletingCode === link.shortCode ? (
+                          <output
+                            className="spinner-border spinner-border-sm"
+                            aria-live="polite"
+                            aria-label="Removendo"
+                          >
+                            <span className="visually-hidden">Removendo</span>
+                          </output>
+                        ) : (
+                          <TrashIcon className={styles.deleteIconSvg} />
+                        )}
+                      </button>
+                    </span>
                   </div>
                 </td>
               </tr>
@@ -366,6 +428,80 @@ function Links(): JSX.Element {
                         </button>
                       </div>
                     </form>
+                  </div>
+                </div>
+              </dialog>
+            </>
+          )}
+
+          {deleteConfirmCode !== null && (
+            <>
+              <div
+                className={`modal-backdrop fade show ${styles.modalBackdrop}`}
+                aria-hidden="true"
+                onClick={() => {
+                  if (isDeletingCode === null) {
+                    handleCloseDeleteModal();
+                  }
+                }}
+              />
+              <dialog
+                className={`modal fade show d-block border-0 bg-transparent p-0 ${styles.modalRoot}`}
+                tabIndex={-1}
+                aria-labelledby="delete-link-modal-title"
+                aria-modal="true"
+                open
+              >
+                <div className="modal-dialog modal-dialog-centered">
+                  <div className="modal-content">
+                    <div className="modal-header">
+                      <h2 id="delete-link-modal-title" className="modal-title h5 fw-medium mb-0">
+                        Excluir link
+                      </h2>
+                      <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Fechar"
+                        onClick={handleCloseDeleteModal}
+                        disabled={isDeletingCode !== null}
+                      />
+                    </div>
+                    <div className="modal-body">
+                      <p className="mb-0">
+                        Tem certeza de que deseja excluir o link com código{' '}
+                        <span className="font-monospace fw-medium">{deleteConfirmCode}</span>? Esta ação não pode ser
+                        desfeita.
+                      </p>
+                    </div>
+                    <div className="modal-footer flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={handleCloseDeleteModal}
+                        disabled={isDeletingCode !== null}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-danger"
+                        onClick={() => {
+                          void handleConfirmDelete();
+                        }}
+                        disabled={isDeletingCode !== null}
+                      >
+                        {isDeletingCode !== null && (
+                          <output
+                            className="spinner-border spinner-border-sm me-2 d-inline-block"
+                            aria-live="polite"
+                            aria-label="Removendo"
+                          >
+                            <span className="visually-hidden">Removendo</span>
+                          </output>
+                        )}
+                        Confirmar exclusão
+                      </button>
+                    </div>
                   </div>
                 </div>
               </dialog>
