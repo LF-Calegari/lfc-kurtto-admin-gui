@@ -22,6 +22,10 @@ function urlItemPath(shortCode: string): string {
   return `${KURTTO_API_V1_BASE}/urls/${encodeURIComponent(shortCode)}`;
 }
 
+function urlRestorePath(shortCode: string): string {
+  return `${urlItemPath(shortCode)}/restore`;
+}
+
 export class LinkApiError extends Error {
   constructor(
     message: string,
@@ -180,8 +184,16 @@ function mapLinkItem(item: unknown): LinkItem {
     throw new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', 500);
   }
 
+  let ownerId: string | null = null;
+  if (typeof record.ownerId === 'string') {
+    ownerId = record.ownerId;
+  } else if (typeof record.owner_id === 'string') {
+    ownerId = record.owner_id;
+  }
+
   return {
     id: record.id as string,
+    ownerId,
     originalUrl: record.originalUrl as string,
     shortCode: record.shortCode as string,
     shortUrl: record.shortUrl as string,
@@ -367,4 +379,18 @@ export async function deleteLink(code: string): Promise<void> {
     const body = await parseJsonBody(response);
     throw mapApiError(response.status, body);
   }
+}
+
+export async function restoreLink(code: string): Promise<LinkItem> {
+  const response = await request(urlRestorePath(code), {
+    method: 'PATCH',
+  });
+  const body = await parseJsonBody(response);
+  if (!response.ok) {
+    if (response.status === 422) {
+      throw new LinkApiError('Este link não está excluído.', 422);
+    }
+    throw mapApiError(response.status, body);
+  }
+  return mapLinkItem(body);
 }

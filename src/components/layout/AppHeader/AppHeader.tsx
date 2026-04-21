@@ -1,12 +1,27 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
+import { ROUTES } from '../../../constants/routes';
 import { useAuth } from '../../../contexts/AuthContext';
 
 import styles from './AppHeader.module.css';
 
+function resolvePageTitle(pathname: string): string {
+  if (pathname === ROUTES.HOME || pathname === '/') {
+    return 'Início';
+  }
+  if (pathname.startsWith(ROUTES.LINKS)) {
+    return 'Links';
+  }
+  return '';
+}
+
 export function AppHeader(): JSX.Element {
   const { user, logout } = useAuth();
+  const { pathname } = useLocation();
   const [isBusy, setIsBusy] = useState(false);
+
+  const pageTitle = resolvePageTitle(pathname);
 
   const handleLogout = async (): Promise<void> => {
     setIsBusy(true);
@@ -19,7 +34,12 @@ export function AppHeader(): JSX.Element {
 
   return (
     <header className={`border-bottom bg-white ${styles.header}`}>
-      <div className="d-flex align-items-center justify-content-end w-100 gap-3">
+      <div className="d-flex align-items-center justify-content-between w-100 gap-3">
+        {pageTitle ? (
+          <span className={styles.pageTitle}>{pageTitle}</span>
+        ) : (
+          <span />
+        )}
         <div className="dropdown">
           <button
             type="button"

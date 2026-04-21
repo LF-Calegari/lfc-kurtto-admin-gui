@@ -84,7 +84,7 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/em construção/i)).toBeInTheDocument();
+      expect(screen.getByText(/olá,/i)).toBeInTheDocument();
     });
   });
 });

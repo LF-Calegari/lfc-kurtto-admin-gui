@@ -14,21 +14,35 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.brandEyebrow {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-amber);
+.brandLogo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-.brandTitle {
-  margin: 0;
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brandName {
+  display: block;
   font-size: 1.125rem;
   font-weight: 500;
-  line-height: 1.3;
+  line-height: 1.2;
+  color: var(--color-sand);
+  letter-spacing: -0.02em;
+}
+
+.brandEyebrow {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-amber);
+  line-height: 1;
 }
 
 .nav {

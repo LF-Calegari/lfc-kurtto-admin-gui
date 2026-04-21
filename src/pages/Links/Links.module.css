@@ -13,15 +13,67 @@
 
 .main {
   flex: 1;
-  padding: 24px;
+  padding: 32px 32px 48px;
 }
 
+/* ── Page header ──────────────────────────────────────── */
+
 .pageHeader {
-  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 28px;
 }
+
+.pageHeaderText {
+  min-width: 0;
+}
+
+.pageTitle {
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+.pageHeaderActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.primaryCta {
+  box-shadow: 0 1px 2px rgba(var(--color-primary-rgb), 0.18);
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.primaryCta:hover {
+  box-shadow: 0 4px 14px rgba(var(--color-primary-rgb), 0.28);
+  transform: translateY(-1px);
+}
+
+.primaryCta:active {
+  transform: translateY(0);
+}
+
+@media (min-width: 768px) {
+  .pageHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* ── Panels ───────────────────────────────────────────── */
 
 .panel {
   border: 1px solid var(--color-border-subtle);
+  background-color: var(--bs-body-bg);
+}
+
+.filterPanel {
+  overflow: hidden;
 }
 
 .filterCardHeader {
@@ -29,12 +81,44 @@
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
+.filterHeaderTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filterHeaderIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background-color: var(--color-blush);
+  color: var(--color-primary);
+}
+
 .filterCardFooter {
-  background-color: transparent;
+  background-color: rgba(var(--color-ink-rgb), 0.015);
   border-top: 1px solid var(--color-border-subtle);
 }
 
-.advancedFiltersToggle {
+/* ── Advanced filters toggle ──────────────────────────── */
+
+.filterToggleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background-color: var(--bs-body-bg);
+  color: var(--color-charcoal);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
   transition:
     background-color 150ms ease,
     border-color 150ms ease,
@@ -42,42 +126,540 @@
     box-shadow 150ms ease;
 }
 
+.filterToggleButton:hover {
+  background-color: var(--color-blush);
+  border-color: var(--color-shortcode-border);
+  color: var(--color-primary);
+}
+
+.filterToggleButton:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.15);
+}
+
+.filterToggleButtonOpen,
+.filterToggleButtonOpen:hover {
+  background-color: var(--color-blush);
+  border-color: var(--color-shortcode-border);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px rgba(var(--color-primary-rgb), 0.08);
+}
+
+.filterToggleIcon {
+  color: var(--color-stone);
+  transition: color 150ms ease;
+}
+
+.filterToggleButton:hover .filterToggleIcon,
+.filterToggleButtonOpen .filterToggleIcon {
+  color: var(--color-primary);
+}
+
+.filterToggleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--bs-white);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.filterToggleChevron {
+  color: currentColor;
+  transition: transform 200ms ease;
+}
+
+.filterToggleButtonOpen .filterToggleChevron {
+  transform: rotate(180deg);
+}
+
+.advancedFiltersSection {
+  border-top: 1px dashed var(--color-border-subtle);
+}
+
+/* ── Advanced filters — grupos semânticos ─────────────── */
+
+.filterGroup {
+  padding-top: 20px;
+}
+
+.filterGroup:first-child {
+  padding-top: 0;
+}
+
+.filterGroup + .filterGroup {
+  margin-top: 20px;
+  border-top: 1px dashed var(--color-border-subtle);
+}
+
+.filterGroupTitle {
+  margin: 0 0 14px;
+  color: var(--color-stone);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* ── Search input ─────────────────────────────────────── */
+
+.searchInput {
+  font-size: 0.9375rem;
+}
+
+/* ── Filter chips ─────────────────────────────────────── */
+
 .filterChipsRow {
-  border-bottom: 1px solid var(--color-border-subtle);
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background-color: rgba(var(--color-primary-rgb), 0.04);
+  border: 1px solid var(--color-shortcode-border);
+}
+
+.filterChipsIntro {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  margin-right: 4px;
+}
+
+.filterChipsCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background-color: var(--color-primary);
+  color: var(--bs-white);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .filterChip {
-  background-color: var(--color-blush);
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-charcoal);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 4px 4px 10px;
+  border-radius: 999px;
+  background-color: var(--bs-body-bg);
+  border: 1px solid var(--color-shortcode-border);
+  font-size: 0.8125rem;
   font-weight: 500;
-  padding: 0.35rem 0.65rem;
-  transition: background-color 150ms ease, border-color 150ms ease;
+  color: var(--color-primary);
+  line-height: 1.4;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    box-shadow 150ms ease;
 }
+
+.filterChip:hover {
+  background-color: var(--color-blush);
+  box-shadow: 0 1px 2px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.filterChipLabel {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filterChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-primary);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.filterChipRemove:hover {
+  background-color: var(--color-primary);
+  color: var(--bs-white);
+}
+
+.filterChipRemove:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.filterChipsClearAll {
+  margin-left: auto;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--color-stone);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease;
+}
+
+.filterChipsClearAll:hover {
+  color: var(--color-error-text);
+  background-color: rgba(var(--color-error-rgb), 0.06);
+}
+
+.filterChipsClearAll:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+/* ── Form check emphasis (checkbox custom) ────────────── */
+
+.formCheckEmphasis .form-check-input:checked {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+/* ── Table ────────────────────────────────────────────── */
 
 .tableCard {
   min-width: 0;
 }
 
-.paginationBar {
-  padding: 16px;
-  background-color: transparent;
-  transition: opacity 150ms ease;
+.dataTable {
+  font-size: 0.875rem;
 }
+
+.dataTable thead tr {
+  background-color: rgba(var(--color-ink-rgb), 0.02);
+}
+
+.thCol {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-stone);
+  border-bottom-width: 1px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+  white-space: nowrap;
+}
+
+.tableRow {
+  transition: background-color 120ms ease;
+}
+
+.tableRow:hover {
+  background-color: rgba(var(--color-primary-rgb), 0.04);
+}
+
+.tableCell {
+  vertical-align: middle;
+  font-size: 0.875rem;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.truncate {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dateCell {
+  color: var(--color-stone);
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.clicksCell {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  padding-right: 20px;
+}
+
+.ownerCell {
+  min-width: 160px;
+}
+
+.ownerName,
+.ownerLegacy,
+.ownerError,
+.ownerLoading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.ownerName {
+  color: var(--color-charcoal);
+  font-weight: 500;
+}
+
+.ownerLegacy {
+  color: var(--color-stone);
+}
+
+.ownerError {
+  color: var(--color-error-text);
+}
+
+.ownerLoading {
+  color: var(--color-stone);
+}
+
+.ownerSpinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--color-primary);
+}
+
+/* Short URL cell: URL + botão copiar ao lado */
+.shortUrlCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.shortUrlCell > a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.copyIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-stone);
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    color 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    transform 120ms ease;
+}
+
+.tableRow:hover .copyIconButton {
+  color: var(--color-primary);
+}
+
+.copyIconButton:hover {
+  background-color: var(--color-blush);
+  border-color: var(--color-shortcode-border);
+  color: var(--color-primary);
+}
+
+.copyIconButton:active {
+  transform: scale(0.94);
+}
+
+.copyIconButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.copyIconButtonCopied,
+.copyIconButtonCopied:hover {
+  color: var(--color-success-text);
+  background-color: var(--color-success-bg);
+  border-color: rgba(var(--color-success-rgb), 0.3);
+}
+
+/* Short code badge — fonte mono + cor Ember */
+.shortCodeBadge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background-color: var(--color-shortcode-bg);
+  border: 1px solid var(--color-shortcode-border);
+  color: var(--color-shortcode-text);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Status badges com dot indicador */
+.statusBadgeActive,
+.statusBadgeInactive,
+.statusBadgeDeleted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.statusBadgeActive {
+  background-color: var(--color-status-active-bg);
+  border: 1px solid var(--color-status-active-border);
+  color: var(--color-status-active-text);
+}
+
+.statusBadgeInactive {
+  background-color: var(--color-status-inactive-bg);
+  border: 1px solid var(--color-status-inactive-border);
+  color: var(--color-status-inactive-text);
+}
+
+.statusBadgeDeleted {
+  background-color: var(--color-status-deleted-bg);
+  border: 1px solid var(--color-status-deleted-border);
+  color: var(--color-status-deleted-text);
+}
+
+.statusDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+/* URL links na tabela */
+.urlLink {
+  color: var(--color-charcoal);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.urlLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.shortUrlLink {
+  color: var(--color-primary);
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+.shortUrlLink:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ── Empty / loading states ───────────────────────────── */
+
+.stateContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px;
+  text-align: center;
+}
+
+.stateIconWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background-color: var(--color-sand);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.stateIconWrapEmber {
+  background-color: var(--color-blush);
+  border-color: var(--color-shortcode-border);
+}
+
+.stateIconWrapError {
+  background-color: var(--color-error-bg);
+  border-color: rgba(var(--color-error-rgb), 0.2);
+}
+
+.stateIconEmpty {
+  color: var(--color-ash);
+}
+
+.stateIconEmber {
+  color: var(--color-primary);
+}
+
+.stateIconError {
+  color: var(--color-error);
+}
+
+.loadingSpinner {
+  color: var(--color-primary);
+  width: 2rem;
+  height: 2rem;
+}
+
+.stateHeading {
+  font-size: 1rem;
+  color: var(--color-ink);
+}
+
+.stateText {
+  font-size: 0.875rem;
+  color: var(--color-stone);
+  max-width: 32rem;
+}
+
+/* ── Actions / delete button ──────────────────────────── */
 
 .actions {
   display: flex;
   gap: 8px;
 }
 
-.deleteIconButton {
+.actionIconButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 0;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 6px;
   transition:
     color 150ms ease,
     background-color 150ms ease,
@@ -85,9 +667,43 @@
     opacity 150ms ease;
 }
 
-.deleteIconSvg {
+.actionIconSvg {
   flex-shrink: 0;
 }
+
+/* ── List meta ────────────────────────────────────────── */
+
+.listMetaBadge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-charcoal);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background-color: var(--color-blush);
+  border: 1px solid var(--color-shortcode-border);
+  color: var(--color-primary);
+}
+
+.listRangeHint {
+  font-size: 0.8125rem;
+  color: var(--color-stone);
+}
+
+.listRangeHint strong {
+  color: var(--color-ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Pagination ───────────────────────────────────────── */
+
+.paginationBar {
+  padding: 14px 16px;
+  background-color: transparent;
+  transition: opacity 150ms ease;
+}
+
+/* ── Utility ──────────────────────────────────────────── */
 
 .muted {
   color: var(--color-stone);
@@ -97,16 +713,7 @@
   color: var(--color-error);
 }
 
-.truncate {
-  max-width: 280px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tableCell {
-  vertical-align: middle;
-}
+/* ── Modals ───────────────────────────────────────────── */
 
 .modalBackdrop {
   z-index: 1050;
@@ -119,6 +726,8 @@
 .modalRoot::backdrop {
   display: none;
 }
+
+/* ── Responsive ───────────────────────────────────────── */
 
 @media (max-width: 991.98px) {
   .shell {
