@@ -146,7 +146,10 @@ function renderOwnerCell(
   if (ownerLoadingById[ownerId]) {
     return (
       <span className={styles.ownerLoading}>
-        <span className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`} aria-hidden />
+        <span
+          className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
+          aria-hidden="true"
+        />
         Carregando…
       </span>
     );
@@ -156,7 +159,10 @@ function renderOwnerCell(
   }
   return (
     <span className={styles.ownerLoading}>
-      <span className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`} aria-hidden />
+      <span
+        className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
+        aria-hidden="true"
+      />
       Carregando…
     </span>
   );
@@ -169,15 +175,15 @@ function StatusBadge({ isActive, isDeleted }: Readonly<{ isActive: boolean; isDe
   if (isActive) {
     return (
       <span className={styles.statusBadgeActive}>
-        <span className={styles.statusDot} aria-hidden />{' '}
-        Ativo
+        <span className={styles.statusDot} aria-hidden />
+        <span>Ativo</span>
       </span>
     );
   }
   return (
     <span className={styles.statusBadgeInactive}>
-      <span className={styles.statusDot} aria-hidden />{' '}
-      Inativo
+      <span className={styles.statusDot} aria-hidden />
+      <span>Inativo</span>
     </span>
   );
 }
