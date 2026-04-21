@@ -9,6 +9,7 @@ import { createLink, deleteLink, LinkApiError, listLinks, restoreLink } from '..
 
 import Links from './Links';
 
+import type { AuthUser } from '../../types/auth';
 import type { ListLinksParams } from '../../types/link';
 
 jest.mock('bootstrap/js/dist/tooltip', () => {
@@ -43,19 +44,30 @@ jest.mock('../../services/authService', () => ({
   listUsersByIds: jest.fn(),
 }));
 
+const ADMIN_ROUTE_CODES = [
+  'KURTTO_V1_URLS_PATCH_RESTORE',
+  'KURTTO_V1_URLS_LIST_INCLUDE_DELETED',
+  'KURTTO_V1_URLS_GET_BY_CODE_INCLUDE_DELETED',
+] as const;
+
+const mockedAuthUser: AuthUser = {
+  id: '33333333-3333-3333-3333-333333333333',
+  name: 'Usuário Links',
+  email: 'links.user@mail.test',
+  identity: 1,
+  permissions: [],
+  routeCodes: [],
+};
+
 jest.mock('../../contexts/AuthContext', () => ({
   ...jest.requireActual('../../contexts/AuthContext'),
   useAuth: (): {
-    user: { id: string; name: string; email: string };
+    user: AuthUser;
     isBootstrapping: boolean;
     login: jest.Mock;
     logout: jest.Mock;
   } => ({
-    user: {
-      id: '33333333-3333-3333-3333-333333333333',
-      name: 'Usuário Links',
-      email: 'links.user@mail.test',
-    },
+    user: mockedAuthUser,
     isBootstrapping: false,
     login: jest.fn(),
     logout: jest.fn(),
@@ -82,6 +94,7 @@ function renderLinks(): ReturnType<typeof render> {
 
 describe('Links', () => {
   beforeEach(() => {
+    mockedAuthUser.routeCodes = [];
     localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'jwt-token' }));
     mockedListLinks.mockResolvedValue({
       data: [
@@ -147,10 +160,65 @@ describe('Links', () => {
     expect(await screen.findByText('https://example.com')).toBeInTheDocument();
     expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
+    expect(mockedListLinks.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ ownership_scope: 'mine' }),
+    );
     expect(mockedListUsersByIds).toHaveBeenCalledWith(
       'jwt-token',
       ['99999999-9999-9999-9999-999999999999'],
     );
+  });
+
+  it('usuário não-admin fica restrito ao escopo "apenas meus links"', async () => {
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    const scopeSelect = screen.getByLabelText(/escopo da listagem/i);
+    expect(scopeSelect).toBeDisabled();
+    expect(within(scopeSelect).queryByRole('option', { name: /todos os links/i })).not.toBeInTheDocument();
+    expect(mockedListLinks.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ ownership_scope: 'mine' }),
+    );
+  });
+
+  it('admin alterna entre escopo "meus links" e "todos os links"', async () => {
+    const user = userEvent.setup();
+    mockedAuthUser.routeCodes = [...ADMIN_ROUTE_CODES];
+    mockedListLinks.mockImplementation((params?: Readonly<ListLinksParams>) => {
+      const isAllScope = params?.ownership_scope === 'all';
+      return Promise.resolve({
+        data: [
+          {
+            id: isAllScope ? 'global-1' : 'mine-1',
+            originalUrl: isAllScope ? 'https://global.example.com' : 'https://mine.example.com',
+            shortCode: isAllScope ? 'global1' : 'mine1',
+            shortUrl: isAllScope ? 'https://k.tt/global1' : 'https://k.tt/mine1',
+            clicks: 1,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: { page: params?.page ?? 1, limit: 10, total: 1, total_pages: 1 },
+      });
+    });
+
+    renderLinks();
+    await screen.findByText('https://mine.example.com');
+
+    const scopeSelect = screen.getByLabelText(/escopo da listagem/i);
+    expect(scopeSelect).toBeEnabled();
+    expect(within(scopeSelect).getByRole('option', { name: /todos os links/i })).toBeInTheDocument();
+
+    await user.selectOptions(scopeSelect, 'all');
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+
+    await waitFor(() => {
+      expect(mockedListLinks.mock.calls.some((c) => c[0]?.ownership_scope === 'all')).toBe(true);
+    });
+    expect(await screen.findByText('Escopo: todos os links')).toBeInTheDocument();
   });
 
   it('mostra fallback "Não resolvido" quando a resolução de dono falha', async () => {
