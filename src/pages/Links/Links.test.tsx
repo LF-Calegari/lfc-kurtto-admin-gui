@@ -92,6 +92,49 @@ function renderLinks(): ReturnType<typeof render> {
   );
 }
 
+async function submitFilterSearch(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  const previousCalls = mockedListLinks.mock.calls.length;
+  await act(async () => {
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+  });
+  await waitFor(() => {
+    expect(mockedListLinks.mock.calls.length).toBeGreaterThan(previousCalls);
+  });
+}
+
+async function setOwnershipScope(
+  user: ReturnType<typeof userEvent.setup>,
+  scope: 'mine' | 'all',
+): Promise<void> {
+  const scopeSelect = screen.getByLabelText(/escopo da listagem/i);
+  await act(async () => {
+    await user.selectOptions(scopeSelect, scope);
+  });
+  await waitFor(() => {
+    expect(scopeSelect).toHaveValue(scope);
+  });
+}
+
+function setupUser(): ReturnType<typeof userEvent.setup> {
+  const user = userEvent.setup();
+  const wrapAsyncAction = <Args extends unknown[]>(
+    action: (...args: Args) => Promise<void>,
+  ): ((...args: Args) => Promise<void>) => async (...args: Args): Promise<void> => {
+    await act(async () => {
+      await action(...args);
+    });
+  };
+
+  return {
+    ...user,
+    click: wrapAsyncAction(user.click.bind(user)),
+    type: wrapAsyncAction(user.type.bind(user)),
+    selectOptions: wrapAsyncAction(user.selectOptions.bind(user)),
+    keyboard: wrapAsyncAction(user.keyboard.bind(user)),
+    clear: wrapAsyncAction(user.clear.bind(user)),
+  };
+}
+
 describe('Links', () => {
   beforeEach(() => {
     mockedAuthUser.routeCodes = [];
@@ -182,7 +225,7 @@ describe('Links', () => {
   });
 
   it('admin alterna entre escopo "meus links" e "todos os links"', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedAuthUser.routeCodes = [...ADMIN_ROUTE_CODES];
     mockedListLinks.mockImplementation((params?: Readonly<ListLinksParams>) => {
       const isAllScope = params?.ownership_scope === 'all';
@@ -212,13 +255,144 @@ describe('Links', () => {
     expect(scopeSelect).toBeEnabled();
     expect(within(scopeSelect).getByRole('option', { name: /todos os links/i })).toBeInTheDocument();
 
-    await user.selectOptions(scopeSelect, 'all');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await setOwnershipScope(user, 'all');
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.ownership_scope === 'all')).toBe(true);
     });
     expect(await screen.findByText('Escopo: todos os links')).toBeInTheDocument();
+  });
+
+  it('preserva ownership_scope=all após create/delete/restore, paginação e refetch', async () => {
+    const user = setupUser();
+    mockedAuthUser.routeCodes = [...ADMIN_ROUTE_CODES];
+    let failNextAllScopeRequest = false;
+
+    mockedListLinks.mockImplementation((params?: Readonly<ListLinksParams>) => {
+      const ownershipScope = params?.ownership_scope ?? 'mine';
+      if (ownershipScope === 'all' && failNextAllScopeRequest) {
+        failNextAllScopeRequest = false;
+        return Promise.reject(new Error('falha transitória'));
+      }
+      const page = params?.page ?? 1;
+      if (ownershipScope === 'all') {
+        return Promise.resolve({
+          data: page === 2
+            ? [
+                {
+                  id: 'global-2',
+                  originalUrl: 'https://global-page-2.example.com',
+                  shortCode: 'global2',
+                  shortUrl: 'https://k.tt/global2',
+                  clicks: 3,
+                  isActive: true,
+                  createdAt: '2026-01-01T10:00:00.000Z',
+                  updatedAt: '2026-01-01T10:00:00.000Z',
+                  expiresAt: null,
+                  deletedAt: null,
+                },
+              ]
+            : [
+                {
+                  id: 'global-1',
+                  originalUrl: 'https://global-active.example.com',
+                  shortCode: 'global1',
+                  shortUrl: 'https://k.tt/global1',
+                  clicks: 2,
+                  isActive: true,
+                  createdAt: '2026-01-01T10:00:00.000Z',
+                  updatedAt: '2026-01-01T10:00:00.000Z',
+                  expiresAt: null,
+                  deletedAt: null,
+                },
+                {
+                  id: 'global-deleted',
+                  originalUrl: 'https://global-deleted.example.com',
+                  shortCode: 'globald',
+                  shortUrl: 'https://k.tt/globald',
+                  clicks: 0,
+                  isActive: false,
+                  createdAt: '2026-01-01T10:00:00.000Z',
+                  updatedAt: '2026-01-01T10:00:00.000Z',
+                  expiresAt: null,
+                  deletedAt: '2026-01-02T10:00:00.000Z',
+                },
+              ],
+          meta: { page, limit: 10, total: 12, total_pages: 2 },
+        });
+      }
+      return Promise.resolve({
+        data: [
+          {
+            id: 'mine-1',
+            originalUrl: 'https://mine.example.com',
+            shortCode: 'mine1',
+            shortUrl: 'https://k.tt/mine1',
+            clicks: 1,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: { page: 1, limit: 10, total: 1, total_pages: 1 },
+      });
+    });
+
+    renderLinks();
+    await screen.findByText('https://mine.example.com');
+
+    await setOwnershipScope(user, 'all');
+    await submitFilterSearch(user);
+    expect(await screen.findByText('Escopo: todos os links')).toBeInTheDocument();
+    expect(await screen.findByText('https://global-active.example.com')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /adicionar link/i }));
+    await user.type(screen.getByLabelText(/^url original$/i), 'https://novo-all-scope.com');
+    await user.click(screen.getByRole('button', { name: /^cadastrar link$/i }));
+    expect(await screen.findByText('Link cadastrado com sucesso.')).toBeInTheDocument();
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ ownership_scope: 'all' }));
+    });
+
+    await user.click(screen.getByRole('button', { name: /excluir link/i }));
+    const deleteDialog = screen.getByRole('dialog', { name: /excluir link/i });
+    await user.click(within(deleteDialog).getByRole('button', { name: /confirmar exclusão/i }));
+    expect(await screen.findByText('Link removido com sucesso.')).toBeInTheDocument();
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ ownership_scope: 'all' }));
+    });
+
+    await user.click(screen.getByRole('button', { name: /restaurar link/i }));
+    expect(await screen.findByText(/Link restaurado com sucesso\./i)).toBeInTheDocument();
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ ownership_scope: 'all' }));
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^próxima$/i }));
+    });
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ ownership_scope: 'all', page: 2 }));
+    });
+
+    failNextAllScopeRequest = true;
+    await submitFilterSearch(user);
+    expect(await screen.findByText('falha transitória')).toBeInTheDocument();
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    });
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last).toEqual(expect.objectContaining({ ownership_scope: 'all' }));
+    });
   });
 
   it('mostra fallback "Não resolvido" quando a resolução de dono falha', async () => {
@@ -324,7 +498,7 @@ describe('Links', () => {
   });
 
   it('tenta novamente resolver dono após erro em nova listagem da sessão', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     let resolveSecondAttempt!: (users: Array<{ id: string; name: string; email: string }>) => void;
     mockedListLinks.mockImplementation(() =>
       Promise.resolve({
@@ -360,7 +534,7 @@ describe('Links', () => {
     expect(await screen.findByText('Não resolvido')).toBeInTheDocument();
     expect(mockedListUsersByIds).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListUsersByIds).toHaveBeenCalledTimes(2);
@@ -409,7 +583,7 @@ describe('Links', () => {
   });
 
   it('abre o modal com diálogo semântico e fecha ao cancelar, no backdrop e com Escape', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -431,7 +605,7 @@ describe('Links', () => {
   });
 
   it('bloqueia envio inválido no modal e exibe mensagem', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -445,7 +619,7 @@ describe('Links', () => {
   });
 
   it('não fecha o modal com Escape enquanto o envio está em andamento', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const pendingCreate: {
       resolve?: (value: Awaited<ReturnType<typeof createLink>>) => void;
     } = {};
@@ -493,7 +667,7 @@ describe('Links', () => {
   });
 
   it('cadastra link válido pelo modal e exibe sucesso', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -513,7 +687,7 @@ describe('Links', () => {
   });
 
   it('exclui com atualização da lista', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -542,7 +716,7 @@ describe('Links', () => {
   });
 
   it('rejeita URL com protocolo diferente de http(s)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -555,7 +729,7 @@ describe('Links', () => {
   });
 
   it('rejeita URL acima do limite de caracteres', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const longUrl = `https://example.com/${'a'.repeat(2040)}`;
     renderLinks();
 
@@ -571,7 +745,7 @@ describe('Links', () => {
   });
 
   it('exibe erro retornado pela API ao cadastrar', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedCreateLink.mockImplementationOnce(() =>
       Promise.reject(new LinkApiError('Já existe um link com estes dados.', 409)),
     );
@@ -587,7 +761,7 @@ describe('Links', () => {
   });
 
   it('exibe mensagem genérica quando ocorre erro inesperado ao salvar', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedCreateLink.mockImplementationOnce(() => Promise.reject(new Error('falha genérica')));
 
     renderLinks();
@@ -601,7 +775,7 @@ describe('Links', () => {
   });
 
   it('não chama exclusão quando o usuário cancela a confirmação', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
 
     renderLinks();
 
@@ -615,7 +789,7 @@ describe('Links', () => {
   });
 
   it('exibe erro ao falhar a exclusão', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedDeleteLink.mockRejectedValueOnce(new LinkApiError('Link não encontrado para esta operação.', 404));
 
     renderLinks();
@@ -629,7 +803,7 @@ describe('Links', () => {
   });
 
   it('mantém Buscar no rodapé do card de filtros, expõe Adicionar link no cabeçalho da página e usa form sem recarregar', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -656,7 +830,7 @@ describe('Links', () => {
   });
 
   it('não consulta o backend ao digitar; Buscar e Enter disparam listagem com q', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks.mockResolvedValue({
       data: [
         {
@@ -685,7 +859,7 @@ describe('Links', () => {
     await user.type(searchInput, 'beta');
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
     await waitFor(() => {
       expect(mockedListLinks).toHaveBeenCalledTimes(2);
     });
@@ -705,7 +879,7 @@ describe('Links', () => {
   });
 
   it('troca de página reutiliza o termo de busca aplicado', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rowP2 = {
       id: '2',
       originalUrl: 'https://page-two.com',
@@ -749,7 +923,7 @@ describe('Links', () => {
     await screen.findByText('https://alpha.com');
 
     await user.type(screen.getByRole('searchbox'), 'termo');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.q === 'termo')).toBe(true);
     });
@@ -761,7 +935,7 @@ describe('Links', () => {
   });
 
   it('aplica filtro avançado de código curto e exibe resumo em chips', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -769,7 +943,7 @@ describe('Links', () => {
     expect(document.getElementById('links-advanced-filters')?.tagName.toLowerCase()).toBe('section');
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'xcode');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'xcode')).toBe(true);
@@ -778,14 +952,14 @@ describe('Links', () => {
   });
 
   it('limpa filtros avançados e volta à listagem sem parâmetros de filtro', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'abc');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'abc')).toBe(true);
@@ -802,7 +976,7 @@ describe('Links', () => {
   });
 
   it('remove um filtro individual pelo chip sem afetar os demais', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
     await screen.findByText('https://example.com');
 
@@ -810,7 +984,7 @@ describe('Links', () => {
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'abc');
     await user.selectOptions(screen.getByLabelText(/^status$/i), 'true');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(
@@ -831,13 +1005,13 @@ describe('Links', () => {
   });
 
   it('remove o chip de busca e reaplica listagem sem parâmetro q', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
     await screen.findByText('https://example.com');
 
     const searchInput = screen.getByRole('searchbox');
     await user.type(searchInput, 'chip-q');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.q === 'chip-q')).toBe(true);
@@ -853,7 +1027,7 @@ describe('Links', () => {
   });
 
   it('copia a URL curta ao clicar no botão de copiar e exibe feedback de sucesso', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -873,7 +1047,7 @@ describe('Links', () => {
   });
 
   it('exibe erro quando falha ao copiar a URL curta', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const writeText = jest.fn().mockRejectedValue(new Error('clipboard blocked'));
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -893,7 +1067,7 @@ describe('Links', () => {
   });
 
   it('exibe erro quando clipboard não está disponível no navegador', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: undefined,
@@ -921,7 +1095,7 @@ describe('Links', () => {
   });
 
   it('exibe estado de busca vazia e limpa filtros pelo painel da listagem', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks
       .mockResolvedValueOnce({
         data: [
@@ -949,7 +1123,7 @@ describe('Links', () => {
     await screen.findByText('https://example.com');
 
     await user.type(screen.getByRole('searchbox'), 'nada');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     expect(await screen.findByText('Nenhum link corresponde aos filtros.')).toBeInTheDocument();
     const emptySearchHint = screen.getByText('Ajuste os filtros ou limpe para ver todos os links.');
@@ -963,7 +1137,7 @@ describe('Links', () => {
   });
 
   it('recarrega a listagem ao clicar em Tentar novamente após erro', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks
       .mockRejectedValueOnce(new Error('falha rede'))
       .mockResolvedValue({
@@ -1042,7 +1216,7 @@ describe('Links', () => {
   });
 
   it('alterna expansão dos filtros avançados e reflete aria-expanded', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
     await screen.findByText('https://example.com');
 
@@ -1059,13 +1233,13 @@ describe('Links', () => {
   });
 
   it('exibe contagem de filtros ativos no botão de filtros avançados', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
     await screen.findByText('https://example.com');
 
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.type(document.getElementById('links-filter-id') as HTMLInputElement, 'uuid-test');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.id__eq === 'uuid-test')).toBe(true);
@@ -1076,7 +1250,7 @@ describe('Links', () => {
   });
 
   it('preenche campos avançados (URL, cliques entre, datas, status e excluídos) e aplica', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
     await screen.findByText('https://example.com');
 
@@ -1103,7 +1277,7 @@ describe('Links', () => {
     await user.type(screen.getByLabelText('De', { selector: '#links-filter-deleted-from' }), deletedFrom);
     await user.type(screen.getByLabelText('Até', { selector: '#links-filter-deleted-to' }), deletedTo);
 
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     await waitFor(() => {
       const hit = mockedListLinks.mock.calls.find(
@@ -1122,7 +1296,7 @@ describe('Links', () => {
   });
 
   it('navega para página anterior mantendo filtros aplicados', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rowP1 = {
       id: '1',
       originalUrl: 'https://p1.com',
@@ -1152,7 +1326,7 @@ describe('Links', () => {
     await screen.findByText('https://p1.com');
 
     await user.type(screen.getByRole('searchbox'), 'x');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.q === 'x')).toBe(true);
     });
@@ -1169,7 +1343,7 @@ describe('Links', () => {
   });
 
   it('fecha o modal de exclusão ao clicar no backdrop quando não está excluindo', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderLinks();
 
     await screen.findByText('https://example.com');
@@ -1183,7 +1357,7 @@ describe('Links', () => {
   });
 
   it('não fecha o modal de exclusão com Escape enquanto a exclusão está em andamento', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     let resolveDelete!: () => void;
     mockedDeleteLink.mockImplementationOnce(
       () =>
@@ -1214,7 +1388,7 @@ describe('Links', () => {
   });
 
   it('exibe toast de erro quando a listagem falha após aplicar filtros', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks
       .mockResolvedValueOnce({
         data: [
@@ -1241,7 +1415,7 @@ describe('Links', () => {
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'z');
-    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+    await submitFilterSearch(user);
 
     expect(await screen.findByText('erro ao filtrar')).toBeInTheDocument();
   });
@@ -1298,7 +1472,7 @@ describe('Links', () => {
   });
 
   it('restaura link ao clicar em Restaurar, exibe toast de sucesso e refaz a listagem', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks.mockResolvedValueOnce({
       data: [
         {
@@ -1332,7 +1506,7 @@ describe('Links', () => {
   });
 
   it('exibe toast de erro quando restauração falha', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockedListLinks.mockResolvedValueOnce({
       data: [
         {
