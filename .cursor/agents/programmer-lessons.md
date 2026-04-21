@@ -16,3 +16,4 @@ Erros que geraram BLOCKER em reviews anteriores. **Nunca repita esses padrões.*
 - [Sonar] **Project key** no SonarCloud pode divergir do nome “esperado” do repo: já foi usado `LF-Calegari_lfc-kurrto-admin-gui` (**kurrto** com *rr*) em vez de `...kurtto...`. Se a API repetir *not found* em loop, confira a chave em **SonarCloud → Administration → projeto** e use `scripts/wait-sonar-pr-quality-gate.sh` (tenta candidatas e só então faz polling).
 - [PR #18] Corpo da PR sem checklist visual explícito — sempre incluir seção de checklist visual validável na descrição da PR.
 - [PR #18] Cor hardcoded em CSS Module (`rgba(...)`) — usar sempre design tokens via CSS custom properties do `variables.css`.
+- [PR #50] Hex hardcoded em `Links.module.css` (`#ffffff`) — nunca usar valor literal em CSS Module; sempre usar tokens/variáveis (`var(--bs-*)` ou `var(--color-*)`) para manter consistência visual e dark mode ready.

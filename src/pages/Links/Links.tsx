@@ -150,7 +150,7 @@ function renderOwnerCell(
           className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
           aria-hidden="true"
         />
-        Carregando…
+        <span>Carregando…</span>
       </span>
     );
   }
@@ -163,7 +163,7 @@ function renderOwnerCell(
         className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
         aria-hidden="true"
       />
-      Carregando…
+      <span>Carregando…</span>
     </span>
   );
 }
@@ -1315,8 +1315,11 @@ function Links(): JSX.Element {
                 </div>
                 {listMeta !== null && !isLoadingList && listMeta.total > 0 && (
                   <span className={styles.listRangeHint}>
-                    Exibindo <strong>{rangeStart.toLocaleString('pt-BR')}</strong>–
-                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong> de
+                    <span>Exibindo </span>
+                    <strong>{rangeStart.toLocaleString('pt-BR')}</strong>
+                    <span>–</span>
+                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong>
+                    <span> de </span>
                     <strong>{listMeta.total.toLocaleString('pt-BR')}</strong>
                   </span>
                 )}

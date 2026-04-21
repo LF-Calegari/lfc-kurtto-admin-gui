@@ -241,7 +241,7 @@ describe('Links', () => {
     expect(await screen.findByText('https://example.com')).toBeInTheDocument();
     expect(screen.getByText('Carregando…')).toBeInTheDocument();
 
-    act(() => {
+    await act(async () => {
       resolveOwners([
         {
           id: '99999999-9999-9999-9999-999999999999',
@@ -249,6 +249,7 @@ describe('Links', () => {
           email: 'owner@mail.test',
         },
       ]);
+      await Promise.resolve();
     });
 
     expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
@@ -298,7 +299,7 @@ describe('Links', () => {
     });
     expect(screen.getByText('Carregando…')).toBeInTheDocument();
 
-    act(() => {
+    await act(async () => {
       resolveSecondAttempt([
         {
           id: '99999999-9999-9999-9999-999999999999',
@@ -306,6 +307,7 @@ describe('Links', () => {
           email: 'owner@mail.test',
         },
       ]);
+      await Promise.resolve();
     });
 
     expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
@@ -401,17 +403,20 @@ describe('Links', () => {
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog')).toBeInTheDocument();
 
-    pendingCreate.resolve?.({
-      id: '9',
-      originalUrl: 'https://pendente.com',
-      shortCode: 'p1',
-      shortUrl: 'https://k.tt/p1',
-      clicks: 0,
-      isActive: true,
-      createdAt: '2026-01-01T10:00:00.000Z',
-      updatedAt: '2026-01-01T10:00:00.000Z',
-      expiresAt: null,
-      deletedAt: null,
+    await act(async () => {
+      pendingCreate.resolve?.({
+        id: '9',
+        originalUrl: 'https://pendente.com',
+        shortCode: 'p1',
+        shortUrl: 'https://k.tt/p1',
+        clicks: 0,
+        isActive: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+        expiresAt: null,
+        deletedAt: null,
+      });
+      await Promise.resolve();
     });
 
     await waitFor(() => {
@@ -959,7 +964,10 @@ describe('Links', () => {
       expect(mockedListLinks).toHaveBeenCalledTimes(2);
     });
 
-    resolvePending(payload);
+    await act(async () => {
+      resolvePending(payload);
+      await Promise.resolve();
+    });
     await waitFor(() => {
       expect(screen.getByText('https://example.com')).toBeInTheDocument();
     });
@@ -1128,7 +1136,10 @@ describe('Links', () => {
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog', { name: /excluir link/i })).toBeInTheDocument();
 
-    resolveDelete();
+    await act(async () => {
+      resolveDelete();
+      await Promise.resolve();
+    });
     await waitFor(() => {
       expect(screen.queryByRole('dialog', { name: /excluir link/i })).not.toBeInTheDocument();
     });
