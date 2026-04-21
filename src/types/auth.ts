@@ -10,6 +10,12 @@ export interface AuthUser {
   routeCodes: string[];
 }
 
+export interface AuthUserSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface AuthSessionPayload {
   token: string;
   user: AuthUser;

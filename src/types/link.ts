@@ -1,5 +1,6 @@
 export interface LinkItem {
   id: string;
+  ownerId?: string | null;
   originalUrl: string;
   shortCode: string;
   shortUrl: string;

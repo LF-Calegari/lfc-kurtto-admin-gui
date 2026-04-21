@@ -22,7 +22,9 @@ import { TrashIcon } from '../../assets/icons/TrashIcon';
 import { XIcon } from '../../assets/icons/XIcon';
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
+import { AUTH_SESSION_STORAGE_KEY } from '../../constants/storageKeys';
 import { useToast } from '../../contexts/ToastContext';
+import { listUsersByIds } from '../../services/authService';
 import { createLink, deleteLink, listLinks, restoreLink } from '../../services/linkService';
 
 import styles from './Links.module.css';
@@ -46,6 +48,25 @@ import type { LinkFormState, LinkValidationErrors } from './linksFormUtils';
 import type { LinkItem, ListLinksMeta } from '../../types/link';
 
 const PAGE_SIZE = 10;
+const LEGACY_UNASSIGNED_OWNER_ID = '00000000-0000-0000-0000-000000000001';
+const OWNER_RESOLUTION_MAX_RETRIES = 3;
+
+function readAuthTokenFromStorage(): string | null {
+  const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as { token?: unknown };
+    if (typeof parsed.token !== 'string') {
+      return null;
+    }
+    const token = parsed.token.trim();
+    return token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
 
 type LinksListPanelKind =
   | 'loading'
@@ -82,6 +103,9 @@ interface LinksListPanelProps {
   isDeletingCode: string | null;
   isRestoringCode: string | null;
   copiedCode: string | null;
+  ownerNamesById: Record<string, string>;
+  ownerLoadingById: Record<string, true>;
+  ownerErrorById: Record<string, true>;
   onRetryList: () => void;
   onClearSearch: () => void;
   onOpenCreate: () => void;
@@ -102,14 +126,66 @@ function formatDate(iso: string): string {
   }
 }
 
+function renderOwnerCell(
+  ownerId: string | null | undefined,
+  ownerNamesById: Record<string, string>,
+  ownerLoadingById: Record<string, true>,
+  ownerErrorById: Record<string, true>,
+): JSX.Element {
+  if (ownerId == null || ownerId === LEGACY_UNASSIGNED_OWNER_ID) {
+    return <span className={styles.ownerLegacy}>Sem dono</span>;
+  }
+  const ownerName = ownerNamesById[ownerId];
+  if (ownerName) {
+    return (
+      <span className={styles.ownerName} title={ownerName}>
+        {ownerName}
+      </span>
+    );
+  }
+  if (ownerLoadingById[ownerId]) {
+    return (
+      <span className={styles.ownerLoading}>
+        <span
+          className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
+          aria-hidden="true"
+        />
+        <span>Carregando…</span>
+      </span>
+    );
+  }
+  if (ownerErrorById[ownerId]) {
+    return <span className={styles.ownerError}>Não resolvido</span>;
+  }
+  return (
+    <span className={styles.ownerLoading}>
+      <span
+        className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`}
+        aria-hidden="true"
+      />
+      <span>Carregando…</span>
+    </span>
+  );
+}
+
 function StatusBadge({ isActive, isDeleted }: Readonly<{ isActive: boolean; isDeleted: boolean }>): JSX.Element {
   if (isDeleted) {
     return <span className={styles.statusBadgeDeleted}>Excluído</span>;
   }
   if (isActive) {
-    return <span className={styles.statusBadgeActive}><span className={styles.statusDot} aria-hidden />Ativo</span>;
+    return (
+      <span className={styles.statusBadgeActive}>
+        <span className={styles.statusDot} aria-hidden />
+        <span>Ativo</span>
+      </span>
+    );
   }
-  return <span className={styles.statusBadgeInactive}><span className={styles.statusDot} aria-hidden />Inativo</span>;
+  return (
+    <span className={styles.statusBadgeInactive}>
+      <span className={styles.statusDot} aria-hidden />
+      <span>Inativo</span>
+    </span>
+  );
 }
 
 function LinksListPanel({
@@ -120,6 +196,9 @@ function LinksListPanel({
   isDeletingCode,
   isRestoringCode,
   copiedCode,
+  ownerNamesById,
+  ownerLoadingById,
+  ownerErrorById,
   onRetryList,
   onClearSearch,
   onOpenCreate,
@@ -187,6 +266,7 @@ function LinksListPanel({
                 <th scope="col" className={styles.thCol}>URL original</th>
                 <th scope="col" className={styles.thCol}>URL curta</th>
                 <th scope="col" className={styles.thCol}>Status</th>
+                <th scope="col" className={styles.thCol}>Dono</th>
                 <th scope="col" className={styles.thCol}>Criado em</th>
                 <th scope="col" className={`${styles.thCol} text-end`}>Cliques</th>
                 <th scope="col" className={`${styles.thCol} text-end`}>
@@ -241,6 +321,9 @@ function LinksListPanel({
                   </td>
                   <td className={styles.tableCell}>
                     <StatusBadge isActive={link.isActive} isDeleted={link.deletedAt !== null} />
+                  </td>
+                  <td className={`${styles.tableCell} ${styles.ownerCell}`}>
+                    {renderOwnerCell(link.ownerId, ownerNamesById, ownerLoadingById, ownerErrorById)}
                   </td>
                   <td className={`${styles.tableCell} ${styles.dateCell}`}>
                     {formatDate(link.createdAt)}
@@ -371,10 +454,17 @@ function Links(): JSX.Element {
   const [errors, setErrors] = useState<LinkValidationErrors>({});
   const [deleteConfirmCode, setDeleteConfirmCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [ownerNamesById, setOwnerNamesById] = useState<Record<string, string>>({});
+  const [ownerLoadingById, setOwnerLoadingById] = useState<Record<string, true>>({});
+  const [ownerErrorById, setOwnerErrorById] = useState<Record<string, true>>({});
   const createUrlInputRef = useRef<HTMLInputElement | null>(null);
   const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
   const listFetchInFlight = useRef(false);
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ownerNameCacheRef = useRef<Map<string, string>>(new Map());
+  const ownerErrorCacheRef = useRef<Set<string>>(new Set());
+  const ownerRetryCountRef = useRef<Map<string, number>>(new Map());
+  const ownerInFlightRef = useRef<Set<string>>(new Set());
 
   const fetchList = useCallback(
     async (
@@ -520,6 +610,152 @@ function Links(): JSX.Element {
     [],
   );
 
+  useEffect(() => {
+    const ownerIds = Array.from(
+      new Set(
+        links
+          .map((link) => link.ownerId)
+          .filter((ownerId): ownerId is string => (
+            typeof ownerId === 'string' &&
+            ownerId !== LEGACY_UNASSIGNED_OWNER_ID
+          )),
+      ),
+    );
+
+    if (ownerIds.length === 0) {
+      return;
+    }
+
+    const missingOwnerIds = ownerIds.filter((ownerId) => {
+      if (ownerNameCacheRef.current.has(ownerId)) {
+        return false;
+      }
+      if (ownerInFlightRef.current.has(ownerId)) {
+        return false;
+      }
+      if (ownerErrorCacheRef.current.has(ownerId)) {
+        const retries = ownerRetryCountRef.current.get(ownerId) ?? 0;
+        return retries < OWNER_RESOLUTION_MAX_RETRIES;
+      }
+      return true;
+    });
+
+    if (missingOwnerIds.length === 0) {
+      return;
+    }
+
+    const token = readAuthTokenFromStorage();
+    if (!token) {
+      setOwnerLoadingById((previous) => {
+        const next = { ...previous };
+        for (const ownerId of missingOwnerIds) {
+          delete next[ownerId];
+        }
+        return next;
+      });
+      setOwnerErrorById((previous) => {
+        const next = { ...previous };
+        for (const ownerId of missingOwnerIds) {
+          ownerRetryCountRef.current.set(ownerId, OWNER_RESOLUTION_MAX_RETRIES);
+          ownerErrorCacheRef.current.add(ownerId);
+          next[ownerId] = true;
+        }
+        return next;
+      });
+      return;
+    }
+
+    for (const ownerId of missingOwnerIds) {
+      ownerInFlightRef.current.add(ownerId);
+    }
+    setOwnerLoadingById((previous) => {
+      const next = { ...previous };
+      for (const ownerId of missingOwnerIds) {
+        next[ownerId] = true;
+      }
+      return next;
+    });
+    setOwnerErrorById((previous) => {
+      const next = { ...previous };
+      for (const ownerId of missingOwnerIds) {
+        delete next[ownerId];
+      }
+      return next;
+    });
+
+    let cancelled = false;
+    void listUsersByIds(token, missingOwnerIds)
+      .then((users) => {
+        if (cancelled) {
+          return;
+        }
+
+        const returnedOwnerIds = new Set<string>();
+        setOwnerNamesById((previous) => {
+          const next = { ...previous };
+          for (const user of users) {
+            returnedOwnerIds.add(user.id);
+            ownerNameCacheRef.current.set(user.id, user.name);
+            ownerErrorCacheRef.current.delete(user.id);
+            ownerRetryCountRef.current.delete(user.id);
+            next[user.id] = user.name;
+          }
+          return next;
+        });
+
+        setOwnerErrorById((previous) => {
+          const next = { ...previous };
+          for (const ownerId of missingOwnerIds) {
+            if (!returnedOwnerIds.has(ownerId)) {
+              const retries = (ownerRetryCountRef.current.get(ownerId) ?? 0) + 1;
+              ownerRetryCountRef.current.set(ownerId, retries);
+              ownerErrorCacheRef.current.add(ownerId);
+              next[ownerId] = true;
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setOwnerErrorById((previous) => {
+          const next = { ...previous };
+          for (const ownerId of missingOwnerIds) {
+            const retries = (ownerRetryCountRef.current.get(ownerId) ?? 0) + 1;
+            ownerRetryCountRef.current.set(ownerId, retries);
+            ownerErrorCacheRef.current.add(ownerId);
+            next[ownerId] = true;
+          }
+          return next;
+        });
+        showToast({
+          variant: 'warning',
+          message: 'Não foi possível resolver todos os donos dos links.',
+        });
+      })
+      .finally(() => {
+        for (const ownerId of missingOwnerIds) {
+          ownerInFlightRef.current.delete(ownerId);
+        }
+        if (cancelled) {
+          return;
+        }
+        setOwnerLoadingById((previous) => {
+          const next = { ...previous };
+          for (const ownerId of missingOwnerIds) {
+            delete next[ownerId];
+          }
+          return next;
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [links, showToast]);
+
   const handleCopyShortUrl = useCallback(
     (shortUrl: string, shortCode: string): void => {
       const onOk = (): void => {
@@ -659,6 +895,9 @@ function Links(): JSX.Element {
       isDeletingCode={isDeletingCode}
       isRestoringCode={isRestoringCode}
       copiedCode={copiedCode}
+      ownerNamesById={ownerNamesById}
+      ownerLoadingById={ownerLoadingById}
+      ownerErrorById={ownerErrorById}
       onRetryList={() => {
         void fetchList(1, appliedQuery, appliedAdvanced);
       }}
@@ -1076,8 +1315,11 @@ function Links(): JSX.Element {
                 </div>
                 {listMeta !== null && !isLoadingList && listMeta.total > 0 && (
                   <span className={styles.listRangeHint}>
-                    Exibindo <strong>{rangeStart.toLocaleString('pt-BR')}</strong>–
-                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong> de{' '}
+                    <span>Exibindo </span>
+                    <strong>{rangeStart.toLocaleString('pt-BR')}</strong>
+                    <span>–</span>
+                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong>
+                    <span> de </span>
                     <strong>{listMeta.total.toLocaleString('pt-BR')}</strong>
                   </span>
                 )}
@@ -1251,7 +1493,7 @@ function Links(): JSX.Element {
                     </div>
                     <div className="modal-body">
                       <p className="mb-0">
-                        Tem certeza de que deseja excluir o link com código{' '}
+                        Tem certeza de que deseja excluir o link com código
                         <span className="font-monospace fw-medium">{deleteConfirmCode}</span>? Esta ação não pode ser
                         desfeita.
                       </p>

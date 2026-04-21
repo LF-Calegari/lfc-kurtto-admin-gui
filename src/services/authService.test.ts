@@ -1,10 +1,11 @@
 import {
   AUTH_LOGIN_PATH,
   AUTH_LOGOUT_PATH,
+  AUTH_USERS_PATH,
   AUTH_VERIFY_TOKEN_PATH,
 } from '../constants/authEndpoints';
 
-import { loginWithPassword, logoutSession, verifySessionToken } from './authService';
+import { listUsersByIds, loginWithPassword, logoutSession, verifySessionToken } from './authService';
 
 function jsonResponse(body: unknown, status = 200): Response {
   const ok = status >= 200 && status < 300;
@@ -167,5 +168,54 @@ describe('authService', () => {
       message: 'Erro no servidor.',
       status: 500,
     });
+  });
+
+  it('listUsersByIds consulta endpoint de batch e devolve usuários mínimos', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(jsonResponse([
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Primeiro',
+        email: 'primeiro@test.com',
+      },
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        name: 'Segundo',
+        email: 'segundo@test.com',
+      },
+    ]));
+    global.fetch = fetchMock;
+
+    const result = await listUsersByIds('jwt-abc', [
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+    ]);
+
+    expect(result).toEqual([
+      {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Primeiro',
+        email: 'primeiro@test.com',
+      },
+      {
+        id: '22222222-2222-2222-2222-222222222222',
+        name: 'Segundo',
+        email: 'segundo@test.com',
+      },
+    ]);
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://auth.test${AUTH_USERS_PATH}?ids=11111111-1111-1111-1111-111111111111&ids=22222222-2222-2222-2222-222222222222`,
+      {
+        method: 'GET',
+        headers: { Authorization: 'Bearer jwt-abc' },
+      },
+    );
+  });
+
+  it('listUsersByIds retorna vazio sem chamar API quando não há ids', async () => {
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    await expect(listUsersByIds('jwt-abc', [])).resolves.toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
