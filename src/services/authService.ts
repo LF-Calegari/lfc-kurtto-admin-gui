@@ -58,6 +58,13 @@ function readMessageFromBody(body: unknown, fallback: string): string {
   return fallback;
 }
 
+function readStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
 function mapVerifyResponse(body: unknown): AuthUser {
   if (!body || typeof body !== 'object') {
     throw new AuthApiError('Resposta inválida do servidor de autenticação.', 500);
@@ -69,7 +76,10 @@ function mapVerifyResponse(body: unknown): AuthUser {
   if (typeof id !== 'string' || typeof name !== 'string' || typeof email !== 'string') {
     throw new AuthApiError('Resposta inválida do servidor de autenticação.', 500);
   }
-  return { id, name, email };
+  const identity = typeof record.identity === 'number' ? record.identity : 0;
+  const permissions = readStringArray(record.permissions);
+  const routeCodes = readStringArray(record.routeCodes);
+  return { id, name, email, identity, permissions, routeCodes };
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<string> {

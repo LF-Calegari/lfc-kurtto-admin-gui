@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 
+import { KurttoLogoIcon } from '../../../assets/icons/KurttoLogoIcon';
 import { ROUTES } from '../../../constants/routes';
 
 import styles from './Sidebar.module.css';
@@ -8,8 +9,13 @@ export function Sidebar(): JSX.Element {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.brandBlock}>
-        <span className={styles.brandEyebrow}>Kurtto Admin</span>
-        <p className={styles.brandTitle}>Painel</p>
+        <div className={styles.brandLogo}>
+          <KurttoLogoIcon width={44} height={30} />
+          <div className={styles.brandText}>
+            <span className={styles.brandName}>kurtto</span>
+            <span className={styles.brandEyebrow}>Admin</span>
+          </div>
+        </div>
       </div>
       <nav className={styles.nav} aria-label="Navegação principal">
         <NavLink

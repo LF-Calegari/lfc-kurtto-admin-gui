@@ -6,6 +6,7 @@ import {
   deleteLink,
   LinkApiError,
   listLinks,
+  restoreLink,
   updateLink,
 } from './linkService';
 
@@ -431,6 +432,56 @@ describe('linkService', () => {
     await expect(updateLink('abc', { originalUrl: 'https://example.com' })).rejects.toMatchObject({
       status: 400,
       message: 'Falhou',
+    });
+  });
+
+  it('restoreLink chama PATCH /urls/{code}/restore e mapeia resposta', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      jsonResponse({
+        id: '1',
+        originalUrl: 'https://example.com',
+        shortCode: 'abc123',
+        shortUrl: 'https://k.tt/abc123',
+        clicks: 0,
+        isActive: true,
+        createdAt: '2026-01-01T10:00:00.000Z',
+        updatedAt: '2026-01-01T10:00:00.000Z',
+        expiresAt: null,
+        deletedAt: null,
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const result = await restoreLink('abc123');
+
+    expect(result.shortCode).toBe('abc123');
+    expect(result.deletedAt).toBeNull();
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls/abc123/restore', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer jwt-token',
+      },
+    });
+  });
+
+  it('restoreLink mapeia 422 para mensagem de link não excluído', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'url is not deleted' }, 422),
+    );
+
+    await expect(restoreLink('abc123')).rejects.toMatchObject({
+      status: 422,
+      message: 'Este link não está excluído.',
+    });
+  });
+
+  it('restoreLink mapeia 404 para link não encontrado', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ message: 'not found' }, 404));
+
+    await expect(restoreLink('nao-existe')).rejects.toMatchObject({
+      status: 404,
+      message: 'Link não encontrado para esta operação.',
     });
   });
 });

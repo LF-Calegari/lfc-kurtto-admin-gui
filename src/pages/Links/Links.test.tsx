@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 import { ToastProvider } from '../../contexts/ToastContext';
-import { createLink, deleteLink, LinkApiError, listLinks } from '../../services/linkService';
+import { createLink, deleteLink, LinkApiError, listLinks, restoreLink } from '../../services/linkService';
 
 import Links from './Links';
 
@@ -12,6 +12,7 @@ import type { ListLinksParams } from '../../types/link';
 jest.mock('bootstrap/js/dist/tooltip', () => {
   function MockTooltip() {
     return {
+      hide: jest.fn(),
       dispose: jest.fn(),
     };
   }
@@ -25,6 +26,7 @@ jest.mock('../../services/linkService', () => ({
   listLinks: jest.fn(),
   createLink: jest.fn(),
   deleteLink: jest.fn(),
+  restoreLink: jest.fn(),
   LinkApiError: class LinkApiError extends Error {
     status: number;
 
@@ -57,6 +59,7 @@ jest.mock('../../contexts/AuthContext', () => ({
 const mockedListLinks = listLinks as jest.MockedFunction<typeof listLinks>;
 const mockedCreateLink = createLink as jest.MockedFunction<typeof createLink>;
 const mockedDeleteLink = deleteLink as jest.MockedFunction<typeof deleteLink>;
+const mockedRestoreLink = restoreLink as jest.MockedFunction<typeof restoreLink>;
 
 const defaultListMeta = { page: 1, limit: 10, total: 1, total_pages: 1 } as const;
 
@@ -102,6 +105,18 @@ describe('Links', () => {
       deletedAt: null,
     });
     mockedDeleteLink.mockResolvedValue();
+    mockedRestoreLink.mockResolvedValue({
+      id: '1',
+      originalUrl: 'https://example.com',
+      shortCode: 'abc123',
+      shortUrl: 'https://k.tt/abc123',
+      clicks: 2,
+      isActive: true,
+      createdAt: '2026-01-01T10:00:00.000Z',
+      updatedAt: '2026-01-01T10:00:00.000Z',
+      expiresAt: null,
+      deletedAt: null,
+    });
   });
 
   afterEach(() => {
@@ -333,7 +348,7 @@ describe('Links', () => {
     expect(await screen.findByText('Link não encontrado para esta operação.')).toBeInTheDocument();
   });
 
-  it('coloca Buscar e Adicionar link no rodapé do card de filtros e usa form sem recarregar', async () => {
+  it('mantém Buscar no rodapé do card de filtros, expõe Adicionar link no cabeçalho da página e usa form sem recarregar', async () => {
     const user = userEvent.setup();
     renderLinks();
 
@@ -347,7 +362,9 @@ describe('Links', () => {
     const buscar = screen.getByRole('button', { name: /^buscar$/i });
     const adicionar = screen.getByRole('button', { name: /adicionar link/i });
     expect(buscar.closest('.card-footer')).not.toBeNull();
-    expect(adicionar.closest('.card-footer')).not.toBeNull();
+    // "Adicionar link" é ação primária da página — fica no cabeçalho, fora do card de filtros.
+    expect(adicionar.closest('.card-footer')).toBeNull();
+    expect(adicionar.closest('form#links-filter-form')).toBeNull();
 
     await user.click(buscar);
     await waitFor(() => {
@@ -472,7 +489,7 @@ describe('Links', () => {
     expect(document.getElementById('links-advanced-filters')?.tagName.toLowerCase()).toBe('section');
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'xcode');
-    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'xcode')).toBe(true);
@@ -488,7 +505,7 @@ describe('Links', () => {
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'abc');
-    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.short_code__eq === 'abc')).toBe(true);
@@ -502,6 +519,55 @@ describe('Links', () => {
       expect(lastCall?.short_code__eq).toBeUndefined();
       expect(lastCall?.q).toBeUndefined();
     });
+  });
+
+  it('remove um filtro individual pelo chip sem afetar os demais', async () => {
+    const user = userEvent.setup();
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
+    await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
+    await user.type(screen.getByLabelText(/^valor do código curto$/i), 'abc');
+    await user.selectOptions(screen.getByLabelText(/^status$/i), 'true');
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+
+    await waitFor(() => {
+      expect(
+        mockedListLinks.mock.calls.some(
+          (c) => c[0]?.short_code__eq === 'abc' && c[0]?.active === true,
+        ),
+      ).toBe(true);
+    });
+
+    // Remove somente o chip de código curto
+    await user.click(screen.getByRole('button', { name: /remover filtro código \(igual\): abc/i }));
+
+    await waitFor(() => {
+      const last = mockedListLinks.mock.calls[mockedListLinks.mock.calls.length - 1]?.[0];
+      expect(last?.short_code__eq).toBeUndefined();
+      expect(last?.active).toBe(true);
+    });
+  });
+
+  it('copia a URL curta ao clicar no botão de copiar e exibe feedback de sucesso', async () => {
+    const user = userEvent.setup();
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    const copyButton = screen.getByRole('button', { name: /copiar url curta https:\/\/k\.tt\/abc123/i });
+    await user.click(copyButton);
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('https://k.tt/abc123');
+    });
+    expect(await screen.findByText('URL curta copiada.')).toBeInTheDocument();
   });
 
   it('exibe estado vazio sem cadastros quando não há filtros', async () => {
@@ -657,7 +723,7 @@ describe('Links', () => {
 
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.type(document.getElementById('links-filter-id') as HTMLInputElement, 'uuid-test');
-    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
 
     await waitFor(() => {
       expect(mockedListLinks.mock.calls.some((c) => c[0]?.id__eq === 'uuid-test')).toBe(true);
@@ -695,7 +761,7 @@ describe('Links', () => {
     await user.type(screen.getByLabelText('De', { selector: '#links-filter-deleted-from' }), deletedFrom);
     await user.type(screen.getByLabelText('Até', { selector: '#links-filter-deleted-to' }), deletedTo);
 
-    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
 
     await waitFor(() => {
       const hit = mockedListLinks.mock.calls.find(
@@ -830,8 +896,101 @@ describe('Links', () => {
     await user.click(screen.getByRole('button', { name: /filtros avançados/i }));
     await user.selectOptions(screen.getByLabelText(/modo de filtro do código curto/i), 'eq');
     await user.type(screen.getByLabelText(/^valor do código curto$/i), 'z');
-    await user.click(screen.getByRole('button', { name: /^aplicar filtros$/i }));
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
 
     expect(await screen.findByText('erro ao filtrar')).toBeInTheDocument();
+  });
+
+  it('exibe botão Restaurar (e oculta Excluir) para link soft-deleted', async () => {
+    mockedListLinks.mockResolvedValueOnce({
+      data: [
+        {
+          id: '1',
+          originalUrl: 'https://example.com',
+          shortCode: 'abc123',
+          shortUrl: 'https://k.tt/abc123',
+          clicks: 2,
+          isActive: false,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: '2026-01-02T10:00:00.000Z',
+        },
+      ],
+      meta: defaultListMeta,
+    });
+
+    renderLinks();
+
+    await screen.findByText('https://example.com');
+    expect(screen.getByRole('button', { name: /restaurar link/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /excluir link/i })).not.toBeInTheDocument();
+  });
+
+  it('restaura link ao clicar em Restaurar, exibe toast de sucesso e refaz a listagem', async () => {
+    const user = userEvent.setup();
+    mockedListLinks.mockResolvedValueOnce({
+      data: [
+        {
+          id: '1',
+          originalUrl: 'https://example.com',
+          shortCode: 'abc123',
+          shortUrl: 'https://k.tt/abc123',
+          clicks: 2,
+          isActive: false,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: '2026-01-02T10:00:00.000Z',
+        },
+      ],
+      meta: defaultListMeta,
+    });
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /restaurar link/i }));
+
+    await waitFor(() => {
+      expect(mockedRestoreLink).toHaveBeenCalledWith('abc123');
+    });
+    expect(await screen.findByText(/Link restaurado com sucesso\./i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListLinks).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('exibe toast de erro quando restauração falha', async () => {
+    const user = userEvent.setup();
+    mockedListLinks.mockResolvedValueOnce({
+      data: [
+        {
+          id: '1',
+          originalUrl: 'https://example.com',
+          shortCode: 'abc123',
+          shortUrl: 'https://k.tt/abc123',
+          clicks: 2,
+          isActive: false,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: '2026-01-02T10:00:00.000Z',
+        },
+      ],
+      meta: defaultListMeta,
+    });
+    mockedRestoreLink.mockRejectedValueOnce(new LinkApiError('Este link não está excluído.', 422));
+
+    renderLinks();
+    await screen.findByText('https://example.com');
+
+    await user.click(screen.getByRole('button', { name: /restaurar link/i }));
+
+    expect(await screen.findByText('Este link não está excluído.')).toBeInTheDocument();
+    await waitFor(() => {
+      const restoreButton = screen.getByRole('button', { name: /restaurar link/i });
+      expect(restoreButton).not.toBeDisabled();
+    });
   });
 });

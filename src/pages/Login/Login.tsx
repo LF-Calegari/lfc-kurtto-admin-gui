@@ -168,6 +168,7 @@ function Login(): JSX.Element {
                     name="email"
                     type="email"
                     autoComplete="email"
+                    placeholder="seu@email.com"
                     className={`form-control ${validationErrors.email ? 'is-invalid' : ''}`}
                     value={formData.email}
                     onChange={(event) => {
@@ -231,15 +232,18 @@ function Login(): JSX.Element {
                   )}
                 </div>
 
-                <button type="submit" className="btn btn-primary w-100" disabled={isSubmitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100"
+                  disabled={isSubmitting}
+                  aria-busy={isSubmitting}
+                >
                   {isSubmitting && (
-                    <output
-                      className="spinner-border spinner-border-sm me-2 d-inline-block"
-                      aria-live="polite"
-                      aria-label="Entrando"
-                    >
-                      <span className="visually-hidden">Entrando</span>
-                    </output>
+                    <span
+                      className="spinner-border spinner-border-sm me-2"
+                      role="status"
+                      aria-hidden="true"
+                    />
                   )}
                   {isSubmitting ? 'Entrando...' : 'Entrar'}
                 </button>

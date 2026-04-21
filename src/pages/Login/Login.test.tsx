@@ -8,6 +8,21 @@ import Home from '../Home/Home';
 
 import Login from './Login';
 
+jest.mock('../../services/linkService', () => ({
+  listLinks: jest.fn().mockResolvedValue({
+    data: [],
+    meta: { page: 1, limit: 1, total: 0, total_pages: 0 },
+  }),
+  LinkApiError: class LinkApiError extends Error {
+    status: number;
+
+    constructor(message: string, status: number) {
+      super(message);
+      this.status = status;
+    }
+  },
+}));
+
 function jsonResponse(body: unknown, status = 200): Response {
   const ok = status >= 200 && status < 300;
   const payload = JSON.stringify(body);
@@ -122,6 +137,7 @@ describe('Login', () => {
           email: validCredentials.email,
           identity: 1,
           permissions: [],
+          routeCodes: [],
         }),
       );
     global.fetch = fetchMock;
@@ -135,7 +151,7 @@ describe('Login', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText(/em construção/i)).toBeInTheDocument();
+      expect(screen.getByText(/olá,/i)).toBeInTheDocument();
     });
 
     expect(fetchMock).toHaveBeenCalled();
@@ -254,5 +270,39 @@ describe('Login', () => {
     });
 
     expect(passwordInput).toHaveAttribute('type', 'text');
+  });
+
+  it('anuncia aria-busy no botão de submit durante o envio', async () => {
+    const validCredentials = createValidCredentials();
+    let resolveLogin!: (value: Response) => void;
+    global.fetch = jest.fn().mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveLogin = resolve;
+        }),
+    );
+
+    const user = userEvent.setup();
+    renderLoginOnly();
+
+    await user.type(screen.getByLabelText(/e-mail/i), validCredentials.email);
+    await user.type(screen.getByLabelText(/^senha$/i), validCredentials.password);
+
+    const submitButton = screen.getByRole('button', { name: /entrar/i });
+    expect(submitButton).not.toHaveAttribute('aria-busy', 'true');
+
+    await act(async () => {
+      await user.click(submitButton);
+    });
+
+    expect(submitButton).toHaveAttribute('aria-busy', 'true');
+    expect(submitButton).toBeDisabled();
+
+    resolveLogin(jsonResponse({ message: 'Credenciais inválidas.' }, 401));
+
+    await waitFor(() => {
+      expect(submitButton).not.toHaveAttribute('aria-busy', 'true');
+      expect(submitButton).not.toBeDisabled();
+    });
   });
 });
