@@ -184,12 +184,16 @@ function mapLinkItem(item: unknown): LinkItem {
     throw new LinkApiError('Ocorreu um erro inesperado. Tente novamente em instantes.', 500);
   }
 
+  let ownerId: string | null = null;
+  if (typeof record.ownerId === 'string') {
+    ownerId = record.ownerId;
+  } else if (typeof record.owner_id === 'string') {
+    ownerId = record.owner_id;
+  }
+
   return {
     id: record.id as string,
-    ownerId:
-      typeof record.ownerId === 'string'
-        ? record.ownerId
-        : (typeof record.owner_id === 'string' ? record.owner_id : null),
+    ownerId,
     originalUrl: record.originalUrl as string,
     shortCode: record.shortCode as string,
     shortUrl: record.shortUrl as string,

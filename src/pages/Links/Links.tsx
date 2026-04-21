@@ -49,6 +49,7 @@ import type { LinkItem, ListLinksMeta } from '../../types/link';
 
 const PAGE_SIZE = 10;
 const LEGACY_UNASSIGNED_OWNER_ID = '00000000-0000-0000-0000-000000000001';
+const OWNER_RESOLUTION_MAX_RETRIES = 3;
 
 function readAuthTokenFromStorage(): string | null {
   const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
@@ -103,6 +104,7 @@ interface LinksListPanelProps {
   isRestoringCode: string | null;
   copiedCode: string | null;
   ownerNamesById: Record<string, string>;
+  ownerLoadingById: Record<string, true>;
   ownerErrorById: Record<string, true>;
   onRetryList: () => void;
   onClearSearch: () => void;
@@ -127,6 +129,7 @@ function formatDate(iso: string): string {
 function renderOwnerCell(
   ownerId: string | null | undefined,
   ownerNamesById: Record<string, string>,
+  ownerLoadingById: Record<string, true>,
   ownerErrorById: Record<string, true>,
 ): JSX.Element {
   if (ownerId == null || ownerId === LEGACY_UNASSIGNED_OWNER_ID) {
@@ -137,6 +140,14 @@ function renderOwnerCell(
     return (
       <span className={styles.ownerName} title={ownerName}>
         {ownerName}
+      </span>
+    );
+  }
+  if (ownerLoadingById[ownerId]) {
+    return (
+      <span className={styles.ownerLoading}>
+        <span className={`spinner-border spinner-border-sm ${styles.ownerSpinner}`} aria-hidden />
+        Carregando…
       </span>
     );
   }
@@ -156,9 +167,19 @@ function StatusBadge({ isActive, isDeleted }: Readonly<{ isActive: boolean; isDe
     return <span className={styles.statusBadgeDeleted}>Excluído</span>;
   }
   if (isActive) {
-    return <span className={styles.statusBadgeActive}><span className={styles.statusDot} aria-hidden />Ativo</span>;
+    return (
+      <span className={styles.statusBadgeActive}>
+        <span className={styles.statusDot} aria-hidden />{' '}
+        Ativo
+      </span>
+    );
   }
-  return <span className={styles.statusBadgeInactive}><span className={styles.statusDot} aria-hidden />Inativo</span>;
+  return (
+    <span className={styles.statusBadgeInactive}>
+      <span className={styles.statusDot} aria-hidden />{' '}
+      Inativo
+    </span>
+  );
 }
 
 function LinksListPanel({
@@ -170,6 +191,7 @@ function LinksListPanel({
   isRestoringCode,
   copiedCode,
   ownerNamesById,
+  ownerLoadingById,
   ownerErrorById,
   onRetryList,
   onClearSearch,
@@ -295,7 +317,7 @@ function LinksListPanel({
                     <StatusBadge isActive={link.isActive} isDeleted={link.deletedAt !== null} />
                   </td>
                   <td className={`${styles.tableCell} ${styles.ownerCell}`}>
-                    {renderOwnerCell(link.ownerId, ownerNamesById, ownerErrorById)}
+                    {renderOwnerCell(link.ownerId, ownerNamesById, ownerLoadingById, ownerErrorById)}
                   </td>
                   <td className={`${styles.tableCell} ${styles.dateCell}`}>
                     {formatDate(link.createdAt)}
@@ -427,6 +449,7 @@ function Links(): JSX.Element {
   const [deleteConfirmCode, setDeleteConfirmCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [ownerNamesById, setOwnerNamesById] = useState<Record<string, string>>({});
+  const [ownerLoadingById, setOwnerLoadingById] = useState<Record<string, true>>({});
   const [ownerErrorById, setOwnerErrorById] = useState<Record<string, true>>({});
   const createUrlInputRef = useRef<HTMLInputElement | null>(null);
   const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
@@ -434,6 +457,8 @@ function Links(): JSX.Element {
   const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ownerNameCacheRef = useRef<Map<string, string>>(new Map());
   const ownerErrorCacheRef = useRef<Set<string>>(new Set());
+  const ownerRetryCountRef = useRef<Map<string, number>>(new Map());
+  const ownerInFlightRef = useRef<Set<string>>(new Set());
 
   const fetchList = useCallback(
     async (
@@ -599,8 +624,12 @@ function Links(): JSX.Element {
       if (ownerNameCacheRef.current.has(ownerId)) {
         return false;
       }
-      if (ownerErrorCacheRef.current.has(ownerId)) {
+      if (ownerInFlightRef.current.has(ownerId)) {
         return false;
+      }
+      if (ownerErrorCacheRef.current.has(ownerId)) {
+        const retries = ownerRetryCountRef.current.get(ownerId) ?? 0;
+        return retries < OWNER_RESOLUTION_MAX_RETRIES;
       }
       return true;
     });
@@ -611,9 +640,17 @@ function Links(): JSX.Element {
 
     const token = readAuthTokenFromStorage();
     if (!token) {
+      setOwnerLoadingById((previous) => {
+        const next = { ...previous };
+        for (const ownerId of missingOwnerIds) {
+          delete next[ownerId];
+        }
+        return next;
+      });
       setOwnerErrorById((previous) => {
         const next = { ...previous };
         for (const ownerId of missingOwnerIds) {
+          ownerRetryCountRef.current.set(ownerId, OWNER_RESOLUTION_MAX_RETRIES);
           ownerErrorCacheRef.current.add(ownerId);
           next[ownerId] = true;
         }
@@ -621,6 +658,24 @@ function Links(): JSX.Element {
       });
       return;
     }
+
+    for (const ownerId of missingOwnerIds) {
+      ownerInFlightRef.current.add(ownerId);
+    }
+    setOwnerLoadingById((previous) => {
+      const next = { ...previous };
+      for (const ownerId of missingOwnerIds) {
+        next[ownerId] = true;
+      }
+      return next;
+    });
+    setOwnerErrorById((previous) => {
+      const next = { ...previous };
+      for (const ownerId of missingOwnerIds) {
+        delete next[ownerId];
+      }
+      return next;
+    });
 
     let cancelled = false;
     void listUsersByIds(token, missingOwnerIds)
@@ -635,6 +690,8 @@ function Links(): JSX.Element {
           for (const user of users) {
             returnedOwnerIds.add(user.id);
             ownerNameCacheRef.current.set(user.id, user.name);
+            ownerErrorCacheRef.current.delete(user.id);
+            ownerRetryCountRef.current.delete(user.id);
             next[user.id] = user.name;
           }
           return next;
@@ -644,6 +701,8 @@ function Links(): JSX.Element {
           const next = { ...previous };
           for (const ownerId of missingOwnerIds) {
             if (!returnedOwnerIds.has(ownerId)) {
+              const retries = (ownerRetryCountRef.current.get(ownerId) ?? 0) + 1;
+              ownerRetryCountRef.current.set(ownerId, retries);
               ownerErrorCacheRef.current.add(ownerId);
               next[ownerId] = true;
             }
@@ -658,6 +717,8 @@ function Links(): JSX.Element {
         setOwnerErrorById((previous) => {
           const next = { ...previous };
           for (const ownerId of missingOwnerIds) {
+            const retries = (ownerRetryCountRef.current.get(ownerId) ?? 0) + 1;
+            ownerRetryCountRef.current.set(ownerId, retries);
             ownerErrorCacheRef.current.add(ownerId);
             next[ownerId] = true;
           }
@@ -666,6 +727,21 @@ function Links(): JSX.Element {
         showToast({
           variant: 'warning',
           message: 'Não foi possível resolver todos os donos dos links.',
+        });
+      })
+      .finally(() => {
+        for (const ownerId of missingOwnerIds) {
+          ownerInFlightRef.current.delete(ownerId);
+        }
+        if (cancelled) {
+          return;
+        }
+        setOwnerLoadingById((previous) => {
+          const next = { ...previous };
+          for (const ownerId of missingOwnerIds) {
+            delete next[ownerId];
+          }
+          return next;
         });
       });
 
@@ -814,6 +890,7 @@ function Links(): JSX.Element {
       isRestoringCode={isRestoringCode}
       copiedCode={copiedCode}
       ownerNamesById={ownerNamesById}
+      ownerLoadingById={ownerLoadingById}
       ownerErrorById={ownerErrorById}
       onRetryList={() => {
         void fetchList(1, appliedQuery, appliedAdvanced);

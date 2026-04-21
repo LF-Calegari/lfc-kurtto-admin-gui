@@ -162,6 +162,90 @@ describe('Links', () => {
     expect(await screen.findByText('Não resolvido')).toBeInTheDocument();
   });
 
+  it('exibe estado transitório de loading do dono antes de resolver o nome', async () => {
+    let resolveOwners!: (users: Array<{ id: string; name: string; email: string }>) => void;
+    mockedListUsersByIds.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveOwners = resolve;
+        }),
+    );
+
+    renderLinks();
+
+    expect(await screen.findByText('https://example.com')).toBeInTheDocument();
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
+
+    act(() => {
+      resolveOwners([
+        {
+          id: '99999999-9999-9999-9999-999999999999',
+          name: 'Usuário Dono',
+          email: 'owner@mail.test',
+        },
+      ]);
+    });
+
+    expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
+  });
+
+  it('tenta novamente resolver dono após erro em nova listagem da sessão', async () => {
+    const user = userEvent.setup();
+    let resolveSecondAttempt!: (users: Array<{ id: string; name: string; email: string }>) => void;
+    mockedListLinks.mockImplementation(() =>
+      Promise.resolve({
+        data: [
+          {
+            id: '1',
+            ownerId: '99999999-9999-9999-9999-999999999999',
+            originalUrl: 'https://example.com',
+            shortCode: 'abc123',
+            shortUrl: 'https://k.tt/abc123',
+            clicks: 2,
+            isActive: true,
+            createdAt: '2026-01-01T10:00:00.000Z',
+            updatedAt: '2026-01-01T10:00:00.000Z',
+            expiresAt: null,
+            deletedAt: null,
+          },
+        ],
+        meta: defaultListMeta,
+      }),
+    );
+    mockedListUsersByIds
+      .mockRejectedValueOnce(new Error('indisponível'))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecondAttempt = resolve;
+          }),
+      );
+
+    renderLinks();
+
+    expect(await screen.findByText('Não resolvido')).toBeInTheDocument();
+    expect(mockedListUsersByIds).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /^buscar$/i }));
+
+    await waitFor(() => {
+      expect(mockedListUsersByIds).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText('Carregando…')).toBeInTheDocument();
+
+    act(() => {
+      resolveSecondAttempt([
+        {
+          id: '99999999-9999-9999-9999-999999999999',
+          name: 'Usuário Dono',
+          email: 'owner@mail.test',
+        },
+      ]);
+    });
+
+    expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
+  });
+
   it('mostra "Sem dono" para link legado sem owner definido', async () => {
     mockedListLinks.mockResolvedValueOnce({
       data: [
