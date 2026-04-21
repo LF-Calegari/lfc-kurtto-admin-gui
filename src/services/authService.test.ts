@@ -53,14 +53,15 @@ describe('authService', () => {
     });
   });
 
-  it('verifySessionToken envia Authorization Bearer e mapeia o usuário', async () => {
+  it('verifySessionToken envia Authorization Bearer e mapeia o usuário com identity, permissions e routeCodes', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       jsonResponse({
         id: '11111111-1111-1111-1111-111111111111',
         name: 'Admin',
         email: 'admin@test.com',
-        identity: 1,
-        permissions: [],
+        identity: 2,
+        permissions: ['aaaa-bbbb', 'cccc-dddd'],
+        routeCodes: ['links.read', 'links.create'],
       }),
     );
     global.fetch = fetchMock;
@@ -71,11 +72,30 @@ describe('authService', () => {
       id: '11111111-1111-1111-1111-111111111111',
       name: 'Admin',
       email: 'admin@test.com',
+      identity: 2,
+      permissions: ['aaaa-bbbb', 'cccc-dddd'],
+      routeCodes: ['links.read', 'links.create'],
     });
     expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_VERIFY_TOKEN_PATH}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer jwt-abc' },
     });
+  });
+
+  it('verifySessionToken usa defaults seguros quando identity/permissions/routeCodes estão ausentes', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Admin',
+        email: 'admin@test.com',
+      }),
+    );
+
+    const user = await verifySessionToken('jwt-abc');
+
+    expect(user.identity).toBe(0);
+    expect(user.permissions).toEqual([]);
+    expect(user.routeCodes).toEqual([]);
   });
 
   it('logoutSession chama endpoint de logout com Bearer', async () => {

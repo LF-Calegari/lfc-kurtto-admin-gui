@@ -351,3 +351,59 @@ export function buildFilterChips(params: Readonly<ListLinksParams>): FilterChip[
 export function countActiveFilters(params: Readonly<ListLinksParams>): number {
   return buildFilterChips(params).length;
 }
+
+/**
+ * Retorna uma cópia do draft com o filtro identificado por `chipId` limpo.
+ * Usado pelo botão de remover chip individual no painel de filtros ativos.
+ */
+export function clearFilterByChipId(
+  draft: Readonly<AdvancedFilterDraft>,
+  chipId: string,
+): AdvancedFilterDraft {
+  const next: AdvancedFilterDraft = { ...draft };
+  switch (chipId) {
+    case 'id__eq':
+      next.idEq = '';
+      return next;
+    case 'short_code__eq':
+    case 'short_code__like':
+      next.shortCode = '';
+      next.shortCodeOp = 'none';
+      return next;
+    case 'original_url__eq':
+    case 'original_url__like':
+      next.originalUrl = '';
+      next.originalUrlOp = 'none';
+      return next;
+    case 'clicks__eq':
+    case 'clicks__lt':
+    case 'clicks__gt':
+    case 'clicks__between':
+      next.clicksOp = 'none';
+      next.clicksValue = '';
+      next.clicksValueEnd = '';
+      return next;
+    case 'created_at__gt':
+    case 'created_at__lt':
+    case 'created_at__between':
+      next.createdFrom = '';
+      next.createdTo = '';
+      return next;
+    case 'deleted_at__gt':
+    case 'deleted_at__lt':
+    case 'deleted_at__between':
+      next.deletedFrom = '';
+      next.deletedTo = '';
+      return next;
+    case 'active':
+      next.active = '';
+      return next;
+    case 'include_deleted':
+      next.includeDeleted = false;
+      next.deletedFrom = '';
+      next.deletedTo = '';
+      return next;
+    default:
+      return next;
+  }
+}

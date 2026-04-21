@@ -14,6 +14,7 @@
   --color-primary-rgb: 232, 89, 60;
   --color-focus-ring-alpha: 0.15;
   --color-amber: #f2a623;
+  --color-amber-rgb: 242, 166, 35;
   --color-blush: #faece7;
   --color-ink: #1a1a1a;
   --color-ink-rgb: 26, 26, 26;
@@ -23,6 +24,35 @@
   --color-ash: #b4b2a9;
   --color-sand: #f1efe8;
   --color-success: #1d9e75;
+  --color-success-rgb: 29, 158, 117;
+  --color-success-bg: #e1f5ee;
+  --color-success-text: #0f6e56;
   --color-error: #e24b4a;
+  --color-error-rgb: 226, 75, 74;
+  --color-error-bg: #fcebeb;
+  --color-error-text: #a32d2d;
+  --color-inactive-bg: #f1efe8;
+  --color-inactive-text: #73726c;
   --color-info: #378add;
+
+  /* Status badge colors */
+  --color-status-active-bg: #e1f5ee;
+  --color-status-active-text: #0f6e56;
+  --color-status-active-border: rgba(29, 158, 117, 0.2);
+  --color-status-inactive-bg: #f1efe8;
+  --color-status-inactive-text: #73726c;
+  --color-status-inactive-border: rgba(180, 178, 169, 0.4);
+  --color-status-deleted-bg: #fcebeb;
+  --color-status-deleted-text: #a32d2d;
+  --color-status-deleted-border: rgba(226, 75, 74, 0.2);
+
+  /* Short code badge */
+  --color-shortcode-bg: rgba(232, 89, 60, 0.08);
+  --color-shortcode-text: var(--color-primary);
+  --color-shortcode-border: rgba(232, 89, 60, 0.2);
+
+  /* Sombras */
+  --shadow-card: 0 1px 3px rgba(var(--color-ink-rgb), 0.08), 0 1px 2px rgba(var(--color-ink-rgb), 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(var(--color-ink-rgb), 0.1), 0 2px 4px rgba(var(--color-ink-rgb), 0.06);
+  --shadow-modal: 0 20px 60px rgba(var(--color-ink-rgb), 0.18), 0 8px 24px rgba(var(--color-ink-rgb), 0.1);
 }

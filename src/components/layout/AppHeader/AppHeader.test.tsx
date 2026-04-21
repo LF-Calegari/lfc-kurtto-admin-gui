@@ -1,5 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 
 import { AppHeader } from './AppHeader';
 
@@ -24,6 +25,14 @@ jest.mock('../../../contexts/AuthContext', () => ({
   }),
 }));
 
+function renderHeader(pathname = '/home'): ReturnType<typeof render> {
+  return render(
+    <MemoryRouter initialEntries={[pathname]}>
+      <AppHeader />
+    </MemoryRouter>,
+  );
+}
+
 describe('AppHeader', () => {
   beforeEach(() => {
     mockLogout.mockClear();
@@ -32,7 +41,7 @@ describe('AppHeader', () => {
   it('exibe nome e e-mail do usuário e permite sair', async () => {
     const user = userEvent.setup();
 
-    render(<AppHeader />);
+    renderHeader();
 
     expect(screen.getByText('Header User')).toBeInTheDocument();
     expect(screen.getAllByText(/header\.user@mail\.test/i).length).toBeGreaterThanOrEqual(1);
@@ -45,5 +54,15 @@ describe('AppHeader', () => {
     await waitFor(() => {
       expect(mockLogout).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('exibe título "Início" na rota /home', () => {
+    renderHeader('/home');
+    expect(screen.getByText('Início')).toBeInTheDocument();
+  });
+
+  it('exibe título "Links" na rota /links', () => {
+    renderHeader('/links');
+    expect(screen.getByText('Links')).toBeInTheDocument();
   });
 });
