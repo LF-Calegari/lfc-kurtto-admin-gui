@@ -1316,7 +1316,7 @@ function Links(): JSX.Element {
                 {listMeta !== null && !isLoadingList && listMeta.total > 0 && (
                   <span className={styles.listRangeHint}>
                     Exibindo <strong>{rangeStart.toLocaleString('pt-BR')}</strong>–
-                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong> de{' '}
+                    <strong>{rangeEnd.toLocaleString('pt-BR')}</strong> de
                     <strong>{listMeta.total.toLocaleString('pt-BR')}</strong>
                   </span>
                 )}
@@ -1490,7 +1490,7 @@ function Links(): JSX.Element {
                     </div>
                     <div className="modal-body">
                       <p className="mb-0">
-                        Tem certeza de que deseja excluir o link com código{' '}
+                        Tem certeza de que deseja excluir o link com código
                         <span className="font-monospace fw-medium">{deleteConfirmCode}</span>? Esta ação não pode ser
                         desfeita.
                       </p>

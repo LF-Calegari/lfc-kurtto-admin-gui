@@ -115,7 +115,7 @@
   border-radius: 999px;
   background-color: #ffffff;
   color: var(--color-charcoal);
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   font-weight: 500;
   line-height: 1;
   cursor: pointer;
@@ -412,12 +412,12 @@
 .ownerLoading {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
 }
 
 .ownerName {
@@ -447,7 +447,7 @@
 .shortUrlCell {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   max-width: 100%;
   min-width: 0;
 }
