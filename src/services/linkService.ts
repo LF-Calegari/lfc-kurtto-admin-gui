@@ -186,6 +186,10 @@ function mapLinkItem(item: unknown): LinkItem {
 
   return {
     id: record.id as string,
+    ownerId:
+      typeof record.ownerId === 'string'
+        ? record.ownerId
+        : (typeof record.owner_id === 'string' ? record.owner_id : null),
     originalUrl: record.originalUrl as string,
     shortCode: record.shortCode as string,
     shortUrl: record.shortUrl as string,

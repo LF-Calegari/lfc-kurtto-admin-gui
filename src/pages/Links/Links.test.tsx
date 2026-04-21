@@ -2,7 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
+import { AUTH_SESSION_STORAGE_KEY } from '../../constants/storageKeys';
 import { ToastProvider } from '../../contexts/ToastContext';
+import { listUsersByIds } from '../../services/authService';
 import { createLink, deleteLink, LinkApiError, listLinks, restoreLink } from '../../services/linkService';
 
 import Links from './Links';
@@ -37,6 +39,10 @@ jest.mock('../../services/linkService', () => ({
   },
 }));
 
+jest.mock('../../services/authService', () => ({
+  listUsersByIds: jest.fn(),
+}));
+
 jest.mock('../../contexts/AuthContext', () => ({
   ...jest.requireActual('../../contexts/AuthContext'),
   useAuth: (): {
@@ -60,6 +66,7 @@ const mockedListLinks = listLinks as jest.MockedFunction<typeof listLinks>;
 const mockedCreateLink = createLink as jest.MockedFunction<typeof createLink>;
 const mockedDeleteLink = deleteLink as jest.MockedFunction<typeof deleteLink>;
 const mockedRestoreLink = restoreLink as jest.MockedFunction<typeof restoreLink>;
+const mockedListUsersByIds = listUsersByIds as jest.MockedFunction<typeof listUsersByIds>;
 
 const defaultListMeta = { page: 1, limit: 10, total: 1, total_pages: 1 } as const;
 
@@ -75,10 +82,12 @@ function renderLinks(): ReturnType<typeof render> {
 
 describe('Links', () => {
   beforeEach(() => {
+    localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'jwt-token' }));
     mockedListLinks.mockResolvedValue({
       data: [
         {
           id: '1',
+          ownerId: '99999999-9999-9999-9999-999999999999',
           originalUrl: 'https://example.com',
           shortCode: 'abc123',
           shortUrl: 'https://k.tt/abc123',
@@ -92,6 +101,13 @@ describe('Links', () => {
       ],
       meta: defaultListMeta,
     });
+    mockedListUsersByIds.mockResolvedValue([
+      {
+        id: '99999999-9999-9999-9999-999999999999',
+        name: 'Usuário Dono',
+        email: 'owner@mail.test',
+      },
+    ]);
     mockedCreateLink.mockResolvedValue({
       id: '2',
       originalUrl: 'https://novo.com',
@@ -122,13 +138,55 @@ describe('Links', () => {
   afterEach(() => {
     jest.restoreAllMocks();
     jest.clearAllMocks();
+    localStorage.clear();
   });
 
   it('lista links ao abrir a página', async () => {
     renderLinks();
 
     expect(await screen.findByText('https://example.com')).toBeInTheDocument();
+    expect(await screen.findByText('Usuário Dono')).toBeInTheDocument();
     expect(mockedListLinks).toHaveBeenCalledTimes(1);
+    expect(mockedListUsersByIds).toHaveBeenCalledWith(
+      'jwt-token',
+      ['99999999-9999-9999-9999-999999999999'],
+    );
+  });
+
+  it('mostra fallback "Não resolvido" quando a resolução de dono falha', async () => {
+    mockedListUsersByIds.mockRejectedValueOnce(new Error('indisponível'));
+
+    renderLinks();
+
+    expect(await screen.findByText('https://example.com')).toBeInTheDocument();
+    expect(await screen.findByText('Não resolvido')).toBeInTheDocument();
+  });
+
+  it('mostra "Sem dono" para link legado sem owner definido', async () => {
+    mockedListLinks.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'legacy-1',
+          ownerId: '00000000-0000-0000-0000-000000000001',
+          originalUrl: 'https://legacy.example.com',
+          shortCode: 'legacy1',
+          shortUrl: 'https://k.tt/legacy1',
+          clicks: 0,
+          isActive: true,
+          createdAt: '2026-01-01T10:00:00.000Z',
+          updatedAt: '2026-01-01T10:00:00.000Z',
+          expiresAt: null,
+          deletedAt: null,
+        },
+      ],
+      meta: defaultListMeta,
+    });
+
+    renderLinks();
+
+    expect(await screen.findByText('https://legacy.example.com')).toBeInTheDocument();
+    expect(await screen.findByText('Sem dono')).toBeInTheDocument();
+    expect(mockedListUsersByIds).not.toHaveBeenCalled();
   });
 
   it('abre o modal com diálogo semântico e fecha ao cancelar, no backdrop e com Escape', async () => {

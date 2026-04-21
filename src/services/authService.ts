@@ -1,10 +1,11 @@
 import {
   AUTH_LOGIN_PATH,
   AUTH_LOGOUT_PATH,
+  AUTH_USERS_PATH,
   AUTH_VERIFY_TOKEN_PATH,
 } from '../constants/authEndpoints';
 
-import type { AuthUser } from '../types/auth';
+import type { AuthUser, AuthUserSummary } from '../types/auth';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
@@ -82,6 +83,20 @@ function mapVerifyResponse(body: unknown): AuthUser {
   return { id, name, email, identity, permissions, routeCodes };
 }
 
+function mapUserSummary(item: unknown): AuthUserSummary {
+  if (!item || typeof item !== 'object') {
+    throw new AuthApiError('Resposta inválida do servidor de autenticação.', 500);
+  }
+  const record = item as Record<string, unknown>;
+  const id = record.id;
+  const name = record.name;
+  const email = record.email;
+  if (typeof id !== 'string' || typeof name !== 'string' || typeof email !== 'string') {
+    throw new AuthApiError('Resposta inválida do servidor de autenticação.', 500);
+  }
+  return { id, name, email };
+}
+
 export async function loginWithPassword(email: string, password: string): Promise<string> {
   const response = await fetch(buildUrl(AUTH_LOGIN_PATH), {
     method: 'POST',
@@ -131,4 +146,32 @@ export async function logoutSession(token: string): Promise<void> {
     const message = readMessageFromBody(body, 'Não foi possível encerrar a sessão no servidor.');
     throw new AuthApiError(message, response.status);
   }
+}
+
+export async function listUsersByIds(token: string, ids: readonly string[]): Promise<AuthUserSummary[]> {
+  if (ids.length === 0) {
+    return [];
+  }
+  const search = new URLSearchParams();
+  for (const id of ids) {
+    const trimmed = id.trim();
+    if (trimmed.length > 0) {
+      search.append('ids', trimmed);
+    }
+  }
+  const response = await fetch(`${buildUrl(AUTH_USERS_PATH)}?${search.toString()}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const body = await parseJsonBody(response);
+  if (!response.ok) {
+    const message = readMessageFromBody(body, 'Não foi possível carregar os dados dos usuários.');
+    throw new AuthApiError(message, response.status);
+  }
+  if (!Array.isArray(body)) {
+    throw new AuthApiError('Resposta inválida do servidor de autenticação.', 500);
+  }
+  return body.map((item) => mapUserSummary(item));
 }

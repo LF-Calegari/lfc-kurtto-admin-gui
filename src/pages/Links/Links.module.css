@@ -402,6 +402,47 @@
   padding-right: 20px;
 }
 
+.ownerCell {
+  min-width: 160px;
+}
+
+.ownerName,
+.ownerLegacy,
+.ownerError,
+.ownerLoading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.ownerName {
+  color: var(--color-charcoal);
+  font-weight: 500;
+}
+
+.ownerLegacy {
+  color: var(--color-stone);
+}
+
+.ownerError {
+  color: var(--color-error-text);
+}
+
+.ownerLoading {
+  color: var(--color-stone);
+}
+
+.ownerSpinner {
+  width: 0.75rem;
+  height: 0.75rem;
+  color: var(--color-primary);
+}
+
 /* Short URL cell: URL + botão copiar ao lado */
 .shortUrlCell {
   display: inline-flex;
