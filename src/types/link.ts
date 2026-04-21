@@ -31,6 +31,7 @@ export interface ListLinksResponse {
 export interface ListLinksParams {
   page?: number;
   limit?: number;
+  ownership_scope?: 'mine' | 'all';
   /** Busca textual (código, URL original e URL curta) — mantido para compatibilidade com a API atual. */
   q?: string;
   active?: boolean;

@@ -34,6 +34,7 @@ describe('buildListQuery', () => {
     const query = buildListQuery({
       page: 2,
       limit: 5,
+      ownership_scope: 'all',
       q: '  beta  ',
       short_code__eq: 'abc',
       clicks__between: '1,10',
@@ -44,6 +45,7 @@ describe('buildListQuery', () => {
     const params = new URLSearchParams(query);
     expect(params.get('page')).toBe('2');
     expect(params.get('limit')).toBe('5');
+    expect(params.get('ownership_scope')).toBe('all');
     expect(params.get('q')).toBe('beta');
     expect(params.get('short_code__eq')).toBe('abc');
     expect(params.get('clicks__between')).toBe('1,10');
@@ -149,7 +151,7 @@ describe('linkService', () => {
     expect(result.data[0]?.ownerId).toBe('00000000-0000-0000-0000-000000000001');
   });
 
-  it('listLinks envia query string com page, limit e q', async () => {
+  it('listLinks envia query string com page, limit, escopo e q', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       jsonResponse({
         data: [],
@@ -158,9 +160,9 @@ describe('linkService', () => {
     );
     global.fetch = fetchMock;
 
-    await listLinks({ page: 2, limit: 5, q: '  beta  ' });
+    await listLinks({ page: 2, limit: 5, ownership_scope: 'mine', q: '  beta  ' });
 
-    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls?page=2&limit=5&q=beta', {
+    expect(fetchMock).toHaveBeenCalledWith('http://kurtto-api.test/api/v1/urls?page=2&limit=5&ownership_scope=mine&q=beta', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

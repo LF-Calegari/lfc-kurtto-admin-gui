@@ -23,6 +23,7 @@ import { XIcon } from '../../assets/icons/XIcon';
 import { AppHeader } from '../../components/layout/AppHeader/AppHeader';
 import { Sidebar } from '../../components/layout/Sidebar/Sidebar';
 import { AUTH_SESSION_STORAGE_KEY } from '../../constants/storageKeys';
+import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { listUsersByIds } from '../../services/authService';
 import { createLink, deleteLink, listLinks, restoreLink } from '../../services/linkService';
@@ -50,6 +51,14 @@ import type { LinkItem, ListLinksMeta } from '../../types/link';
 const PAGE_SIZE = 10;
 const LEGACY_UNASSIGNED_OWNER_ID = '00000000-0000-0000-0000-000000000001';
 const OWNER_RESOLUTION_MAX_RETRIES = 3;
+const KURTTO_ADMIN_ROUTE_CODES = [
+  'KURTTO_V1_URLS_PATCH_RESTORE',
+  'KURTTO_V1_URLS_LIST_INCLUDE_DELETED',
+  'KURTTO_V1_URLS_GET_BY_CODE_INCLUDE_DELETED',
+] as const;
+const DEFAULT_OWNERSHIP_SCOPE = 'mine' as const;
+
+type LinkOwnershipScope = 'mine' | 'all';
 
 function readAuthTokenFromStorage(): string | null {
   const raw = localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
@@ -166,6 +175,13 @@ function renderOwnerCell(
       <span>Carregando…</span>
     </span>
   );
+}
+
+function isKurttoAdmin(routeCodes: readonly string[] | undefined): boolean {
+  if (!routeCodes) {
+    return false;
+  }
+  return KURTTO_ADMIN_ROUTE_CODES.every((code) => routeCodes.includes(code));
 }
 
 function StatusBadge({ isActive, isDeleted }: Readonly<{ isActive: boolean; isDeleted: boolean }>): JSX.Element {
@@ -437,11 +453,15 @@ function FilterChipsBar({ chips, onRemove, onClearAll }: Readonly<FilterChipsBar
 }
 
 function Links(): JSX.Element {
+  const { user } = useAuth();
   const { showToast } = useToast();
+  const userCanListAll = isKurttoAdmin(user?.routeCodes);
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [listMeta, setListMeta] = useState<ListLinksMeta | null>(null);
   const [draftQuery, setDraftQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
+  const [draftOwnershipScope, setDraftOwnershipScope] = useState<LinkOwnershipScope>(DEFAULT_OWNERSHIP_SCOPE);
+  const [appliedOwnershipScope, setAppliedOwnershipScope] = useState<LinkOwnershipScope>(DEFAULT_OWNERSHIP_SCOPE);
   const [draftAdvanced, setDraftAdvanced] = useState<AdvancedFilterDraft>(INITIAL_ADVANCED_FILTER);
   const [appliedAdvanced, setAppliedAdvanced] = useState<AdvancedFilterDraft>(INITIAL_ADVANCED_FILTER);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
@@ -471,6 +491,7 @@ function Links(): JSX.Element {
       targetPage: number,
       quickSearch: string,
       advanced: AdvancedFilterDraft,
+      ownershipScope: LinkOwnershipScope,
     ): Promise<void> => {
       if (listFetchInFlight.current) {
         return;
@@ -482,13 +503,16 @@ function Links(): JSX.Element {
         const result = await listLinks({
           page: targetPage,
           limit: PAGE_SIZE,
+          ownership_scope: ownershipScope,
           ...appliedParams,
         });
         setLinks(result.data);
         setListMeta(result.meta);
         setAppliedQuery(quickSearch);
+        setAppliedOwnershipScope(ownershipScope);
         setAppliedAdvanced(advanced);
         setDraftQuery(quickSearch);
+        setDraftOwnershipScope(ownershipScope);
         setDraftAdvanced(advanced);
       } catch (error) {
         showToast({ variant: 'error', message: toUiError(error) });
@@ -501,7 +525,7 @@ function Links(): JSX.Element {
   );
 
   useEffect(() => {
-    void fetchList(1, '', INITIAL_ADVANCED_FILTER);
+    void fetchList(1, '', INITIAL_ADVANCED_FILTER, DEFAULT_OWNERSHIP_SCOPE);
   }, [fetchList]);
 
   const handleOpenCreateModal = useCallback((): void => {
@@ -805,7 +829,7 @@ function Links(): JSX.Element {
       setIsCreateModalOpen(false);
       setForm(INITIAL_FORM);
       setErrors({});
-      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced);
+      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
@@ -823,7 +847,7 @@ function Links(): JSX.Element {
       await deleteLink(code);
       showToast({ variant: 'success', message: 'Link removido com sucesso.' });
       setDeleteConfirmCode(null);
-      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced);
+      await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
     } catch (error) {
       showToast({ variant: 'error', message: toUiError(error) });
     } finally {
@@ -837,14 +861,14 @@ function Links(): JSX.Element {
       try {
         await restoreLink(code);
         showToast({ variant: 'success', message: 'Link restaurado com sucesso.' });
-        await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced);
+        await fetchList(listMeta?.page ?? 1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
       } catch (error) {
         showToast({ variant: 'error', message: toUiError(error) });
       } finally {
         setIsRestoringCode(null);
       }
     },
-    [appliedAdvanced, appliedQuery, fetchList, listMeta?.page, showToast],
+    [appliedAdvanced, appliedOwnershipScope, appliedQuery, fetchList, listMeta?.page, showToast],
   );
 
   const handleRequestRestore = useCallback(
@@ -855,10 +879,15 @@ function Links(): JSX.Element {
   );
 
   const appliedFilterParams = buildAppliedListParams(appliedQuery.trim(), appliedAdvanced);
-  const appliedFilterChips = buildFilterChips(appliedFilterParams);
-  const appliedFiltersCount = countActiveFilters(appliedFilterParams);
+  const ownershipScopeChip: FilterChip[] = userCanListAll && appliedOwnershipScope === 'all'
+    ? [{ id: 'ownership_scope', label: 'Escopo: todos os links' }]
+    : [];
+  const appliedFilterChips = [...buildFilterChips(appliedFilterParams), ...ownershipScopeChip];
+  const appliedFiltersCount = countActiveFilters(appliedFilterParams) + ownershipScopeChip.length;
   const draftFilterParams = buildAppliedListParams(draftQuery.trim(), draftAdvanced);
-  const draftFiltersCount = countActiveFilters(draftFilterParams);
+  const draftFiltersCount = countActiveFilters(draftFilterParams) + (
+    userCanListAll && draftOwnershipScope === 'all' ? 1 : 0
+  );
   const hasAnyFilterToClear = appliedFiltersCount > 0 || draftFiltersCount > 0;
   const listPanelKind = deduceListPanelKind(
     isLoadingList,
@@ -868,22 +897,28 @@ function Links(): JSX.Element {
 
   const handleRemoveChip = useCallback(
     (chipId: string): void => {
+      if (chipId === 'ownership_scope') {
+        setDraftOwnershipScope(DEFAULT_OWNERSHIP_SCOPE);
+        void fetchList(1, appliedQuery, appliedAdvanced, DEFAULT_OWNERSHIP_SCOPE);
+        return;
+      }
       if (chipId === 'q') {
         setDraftQuery('');
-        void fetchList(1, '', appliedAdvanced);
+        void fetchList(1, '', appliedAdvanced, appliedOwnershipScope);
         return;
       }
       const nextAdvanced = clearFilterByChipId(appliedAdvanced, chipId);
       setDraftAdvanced(nextAdvanced);
-      void fetchList(1, appliedQuery, nextAdvanced);
+      void fetchList(1, appliedQuery, nextAdvanced, appliedOwnershipScope);
     },
-    [appliedAdvanced, appliedQuery, fetchList],
+    [appliedAdvanced, appliedOwnershipScope, appliedQuery, fetchList],
   );
 
   const handleClearAllFilters = useCallback((): void => {
     setDraftQuery('');
+    setDraftOwnershipScope(DEFAULT_OWNERSHIP_SCOPE);
     setDraftAdvanced(INITIAL_ADVANCED_FILTER);
-    void fetchList(1, '', INITIAL_ADVANCED_FILTER);
+    void fetchList(1, '', INITIAL_ADVANCED_FILTER, DEFAULT_OWNERSHIP_SCOPE);
   }, [fetchList]);
 
   const listPanelContent = (
@@ -899,7 +934,7 @@ function Links(): JSX.Element {
       ownerLoadingById={ownerLoadingById}
       ownerErrorById={ownerErrorById}
       onRetryList={() => {
-        void fetchList(1, appliedQuery, appliedAdvanced);
+        void fetchList(1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
       }}
       onClearSearch={handleClearAllFilters}
       onOpenCreate={handleOpenCreateModal}
@@ -944,7 +979,7 @@ function Links(): JSX.Element {
             id="links-filter-form"
             onSubmit={(event) => {
               event.preventDefault();
-              void fetchList(1, draftQuery, draftAdvanced);
+              void fetchList(1, draftQuery, draftAdvanced, draftOwnershipScope);
             }}
           >
             <div className={`card-header py-3 px-4 ${styles.filterCardHeader}`}>
@@ -981,7 +1016,7 @@ function Links(): JSX.Element {
                 onClearAll={handleClearAllFilters}
               />
               <div className="row g-3 align-items-end">
-                <div className="col-12 col-lg min-w-0">
+                <div className="col-12 col-lg-8 min-w-0">
                   <label htmlFor="links-search-query" className="form-label fw-medium">
                     Buscar na listagem
                   </label>
@@ -1001,6 +1036,30 @@ function Links(): JSX.Element {
                     }}
                     autoComplete="off"
                   />
+                </div>
+                <div className="col-12 col-lg-4">
+                  <label htmlFor="links-filter-ownership-scope" className="form-label fw-medium">
+                    Escopo da listagem
+                  </label>
+                  <select
+                    id="links-filter-ownership-scope"
+                    className="form-select"
+                    value={draftOwnershipScope}
+                    onChange={(event) => {
+                      setDraftOwnershipScope(event.target.value as LinkOwnershipScope);
+                    }}
+                    disabled={!userCanListAll}
+                  >
+                    <option value="mine">Apenas meus links</option>
+                    {userCanListAll ? (
+                      <option value="all">Todos os links</option>
+                    ) : null}
+                  </select>
+                  <p className={`form-text mb-0 mt-2 ${styles.muted}`}>
+                    {userCanListAll
+                      ? 'Administradores podem alternar entre seus links e a visão global.'
+                      : 'Seu perfil visualiza somente os links vinculados ao seu usuário.'}
+                  </p>
                 </div>
               </div>
 
@@ -1339,7 +1398,7 @@ function Links(): JSX.Element {
                         className="page-link"
                         disabled={listMeta.page <= 1 || isLoadingList}
                         onClick={() => {
-                          void fetchList(listMeta.page - 1, appliedQuery, appliedAdvanced);
+                          void fetchList(listMeta.page - 1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
                         }}
                       >
                         Anterior
@@ -1356,7 +1415,7 @@ function Links(): JSX.Element {
                         className="page-link"
                         disabled={listMeta.page >= listMeta.total_pages || isLoadingList}
                         onClick={() => {
-                          void fetchList(listMeta.page + 1, appliedQuery, appliedAdvanced);
+                          void fetchList(listMeta.page + 1, appliedQuery, appliedAdvanced, appliedOwnershipScope);
                         }}
                       >
                         Próxima
