@@ -283,6 +283,7 @@ export function buildListQuery(params?: Readonly<ListLinksParams>): string {
   if (params.limit !== undefined) {
     search.set('limit', String(params.limit));
   }
+  setOptionalTrimmedString(search, 'ownership_scope', params.ownership_scope);
   setOptionalTrimmedString(search, 'q', params.q);
   setOptionalTrimmedString(search, 'id__eq', params.id__eq);
   setOptionalTrimmedString(search, 'original_url__eq', params.original_url__eq);
