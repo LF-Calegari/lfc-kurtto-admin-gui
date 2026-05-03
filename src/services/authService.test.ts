@@ -20,14 +20,18 @@ function jsonResponse(body: unknown, status = 200): Response {
 describe('authService', () => {
   const originalFetch = global.fetch;
   const originalAuthUrl = process.env.REACT_APP_AUTH_API_URL;
+  const originalSystemId = process.env.REACT_APP_SYSTEM_ID;
+  const SYSTEM_ID = '11111111-1111-1111-1111-111111111111';
 
   beforeEach(() => {
     process.env.REACT_APP_AUTH_API_URL = 'http://auth.test';
+    process.env.REACT_APP_SYSTEM_ID = SYSTEM_ID;
   });
 
   afterEach(() => {
     global.fetch = originalFetch;
     process.env.REACT_APP_AUTH_API_URL = originalAuthUrl;
+    process.env.REACT_APP_SYSTEM_ID = originalSystemId;
   });
 
   it('loginWithPassword envia credenciais ao endpoint oficial e retorna o token', async () => {
@@ -39,8 +43,8 @@ describe('authService', () => {
     expect(token).toBe('jwt-abc');
     expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_LOGIN_PATH}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'user@test.com', password: 'secret' }),
+      headers: { 'Content-Type': 'application/json', 'X-System-Id': SYSTEM_ID },
+      body: JSON.stringify({ email: 'user@test.com', password: 'secret', systemId: SYSTEM_ID }),
     });
   });
 
@@ -79,7 +83,7 @@ describe('authService', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_VERIFY_TOKEN_PATH}`, {
       method: 'GET',
-      headers: { Authorization: 'Bearer jwt-abc' },
+      headers: { Authorization: 'Bearer jwt-abc', 'X-System-Id': SYSTEM_ID },
     });
   });
 
@@ -106,7 +110,7 @@ describe('authService', () => {
     await expect(logoutSession('jwt-abc')).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_LOGOUT_PATH}`, {
       method: 'GET',
-      headers: { Authorization: 'Bearer jwt-abc' },
+      headers: { Authorization: 'Bearer jwt-abc', 'X-System-Id': SYSTEM_ID },
     });
   });
 
@@ -206,7 +210,7 @@ describe('authService', () => {
       `http://auth.test${AUTH_USERS_PATH}?ids=11111111-1111-1111-1111-111111111111&ids=22222222-2222-2222-2222-222222222222`,
       {
         method: 'GET',
-        headers: { Authorization: 'Bearer jwt-abc' },
+        headers: { Authorization: 'Bearer jwt-abc', 'X-System-Id': SYSTEM_ID },
       },
     );
   });
@@ -217,5 +221,62 @@ describe('authService', () => {
 
     await expect(listUsersByIds('jwt-abc', [])).resolves.toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('loginWithPassword falha em fail-fast quando REACT_APP_SYSTEM_ID não está definido', async () => {
+    delete process.env.REACT_APP_SYSTEM_ID;
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    await expect(loginWithPassword('a@b.com', 'x')).rejects.toMatchObject({
+      message: expect.stringMatching(/configure react_app_system_id/i),
+      status: 0,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('verifySessionToken falha em fail-fast quando REACT_APP_SYSTEM_ID está vazio', async () => {
+    process.env.REACT_APP_SYSTEM_ID = '   ';
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    await expect(verifySessionToken('jwt-abc')).rejects.toMatchObject({
+      message: expect.stringMatching(/configure react_app_system_id/i),
+      status: 0,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('loginWithPassword oculta detalhes de erro 400 que mencionam SystemId', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'SystemId é obrigatório.' }, 400),
+    );
+
+    await expect(loginWithPassword('a@b.com', 'x')).rejects.toMatchObject({
+      message: 'Não foi possível autenticar no momento. Tente novamente.',
+      status: 400,
+    });
+  });
+
+  it('loginWithPassword oculta detalhes de erro 400 que indicam sistema inativo', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'Sistema inativo para autenticação.' }, 400),
+    );
+
+    await expect(loginWithPassword('a@b.com', 'x')).rejects.toMatchObject({
+      message: 'Não foi possível autenticar no momento. Tente novamente.',
+      status: 400,
+    });
+  });
+
+  it('verifySessionToken oculta detalhes de 400 que mencionam SystemId', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'SystemId inválido.' }, 400),
+    );
+
+    await expect(verifySessionToken('jwt-abc')).rejects.toMatchObject({
+      message: 'Sessão inválida ou expirada.',
+      status: 400,
+    });
   });
 });

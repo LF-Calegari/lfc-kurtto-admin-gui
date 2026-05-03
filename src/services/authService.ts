@@ -7,7 +7,7 @@ import {
 
 import type { AuthUser, AuthUserSummary } from '../types/auth';
 
-const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
+const SYSTEM_ID_HEADER = 'X-System-Id';
 
 export class AuthApiError extends Error {
   constructor(
@@ -30,8 +30,37 @@ function getAuthBaseUrl(): string {
   return url.replace(/\/$/, '');
 }
 
+function getSystemId(): string {
+  const systemId = process.env.REACT_APP_SYSTEM_ID?.trim();
+  if (!systemId) {
+    throw new AuthApiError(
+      'Configure REACT_APP_SYSTEM_ID com o UUID deste sistema cadastrado no auth-service.',
+      0,
+    );
+  }
+  return systemId;
+}
+
+function buildAuthHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    [SYSTEM_ID_HEADER]: getSystemId(),
+  };
+}
+
 function buildUrl(path: string): string {
   return `${getAuthBaseUrl()}${path}`;
+}
+
+function isSystemIdConfigError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('systemid') ||
+    normalized.includes('system id') ||
+    normalized.includes('sistema invalido') ||
+    normalized.includes('sistema inválido') ||
+    normalized.includes('sistema inativo')
+  );
 }
 
 async function parseJsonBody(response: Response): Promise<unknown> {
@@ -98,19 +127,21 @@ function mapUserSummary(item: unknown): AuthUserSummary {
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<string> {
+  const systemId = getSystemId();
   const response = await fetch(buildUrl(AUTH_LOGIN_PATH), {
     method: 'POST',
-    headers: JSON_HEADERS,
-    body: JSON.stringify({ email, password }),
+    headers: { 'Content-Type': 'application/json', [SYSTEM_ID_HEADER]: systemId },
+    body: JSON.stringify({ email, password, systemId }),
   });
   const body = await parseJsonBody(response);
   if (!response.ok) {
-    const message = readMessageFromBody(
-      body,
+    const fallback =
       response.status === 401
         ? 'Credenciais inválidas.'
-        : 'Não foi possível autenticar no momento. Tente novamente.',
-    );
+        : 'Não foi possível autenticar no momento. Tente novamente.';
+    const rawMessage = readMessageFromBody(body, fallback);
+    const message =
+      response.status === 400 && isSystemIdConfigError(rawMessage) ? fallback : rawMessage;
     throw new AuthApiError(message, response.status);
   }
   if (!body || typeof body !== 'object' || typeof (body as { token?: unknown }).token !== 'string') {
@@ -122,13 +153,14 @@ export async function loginWithPassword(email: string, password: string): Promis
 export async function verifySessionToken(token: string): Promise<AuthUser> {
   const response = await fetch(buildUrl(AUTH_VERIFY_TOKEN_PATH), {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: buildAuthHeaders(token),
   });
   const body = await parseJsonBody(response);
   if (!response.ok) {
-    const message = readMessageFromBody(body, 'Sessão inválida ou expirada.');
+    const fallback = 'Sessão inválida ou expirada.';
+    const rawMessage = readMessageFromBody(body, fallback);
+    const message =
+      response.status === 400 && isSystemIdConfigError(rawMessage) ? fallback : rawMessage;
     throw new AuthApiError(message, response.status);
   }
   return mapVerifyResponse(body);
@@ -137,9 +169,7 @@ export async function verifySessionToken(token: string): Promise<AuthUser> {
 export async function logoutSession(token: string): Promise<void> {
   const response = await fetch(buildUrl(AUTH_LOGOUT_PATH), {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: buildAuthHeaders(token),
   });
   if (!response.ok && response.status !== 401) {
     const body = await parseJsonBody(response);
@@ -161,9 +191,7 @@ export async function listUsersByIds(token: string, ids: readonly string[]): Pro
   }
   const response = await fetch(`${buildUrl(AUTH_USERS_PATH)}?${search.toString()}`, {
     method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    headers: buildAuthHeaders(token),
   });
   const body = await parseJsonBody(response);
   if (!response.ok) {
