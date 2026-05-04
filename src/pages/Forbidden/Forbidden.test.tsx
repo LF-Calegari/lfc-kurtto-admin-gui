@@ -2,6 +2,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
+import {
+  AUTH_PERMISSIONS_PATH,
+  AUTH_VERIFY_TOKEN_PATH,
+} from '../../constants/authEndpoints';
 import { ROUTES } from '../../constants/routes';
 import { AUTH_SESSION_STORAGE_KEY } from '../../constants/storageKeys';
 import { AuthProvider } from '../../contexts/AuthContext';
@@ -76,19 +80,40 @@ describe('Forbidden', () => {
 
   it('botão "Voltar para o início" aparece quando o usuário está autenticado', async () => {
     localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'session' }));
-    global.fetch = jest.fn().mockResolvedValue(
-      jsonResponse({
-        user: {
-          id: '11111111-1111-1111-1111-111111111111',
-          name: 'Admin',
-          email: 'a@test.com',
-          identity: 1,
-        },
-        permissions: [],
-        permissionCodes: [],
-        routeCodes: ['KURTTO_V1_HOME'],
-      }),
-    );
+    // Mock por endpoint (mesmo pattern de `App.test.tsx` e
+    // `ProtectedRoute.test.tsx`): `/auth/permissions` devolve perfil
+    // hidratado para o bootstrap; `/auth/verify-token` devolve `valid:
+    // true` para o `verifyRoute` disparado ao chegar em `/home` —
+    // assim validamos o caminho 200 do guard, não o fallback de
+    // tolerância acionado por payload divergente.
+    global.fetch = jest.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes(AUTH_PERMISSIONS_PATH)) {
+        return Promise.resolve(
+          jsonResponse({
+            user: {
+              id: '11111111-1111-1111-1111-111111111111',
+              name: 'Admin',
+              email: 'a@test.com',
+              identity: 1,
+            },
+            permissions: [],
+            permissionCodes: [],
+            routeCodes: ['KURTTO_V1_HOME'],
+          }),
+        );
+      }
+      if (url.includes(AUTH_VERIFY_TOKEN_PATH)) {
+        return Promise.resolve(
+          jsonResponse({
+            valid: true,
+            issuedAt: '2026-04-26T18:00:00Z',
+            expiresAt: '2026-04-26T19:00:00Z',
+          }),
+        );
+      }
+      return Promise.resolve(jsonResponse({}));
+    });
     const user = userEvent.setup();
     renderWithRouter({ from: '/links' });
 

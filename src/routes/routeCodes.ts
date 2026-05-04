@@ -20,9 +20,14 @@ import { matchPath } from 'react-router-dom';
  *
  * Limitação: a tabela duplica conhecimento que vive no backend
  * (`auth-service` registra os codes via seeder/admin). Mudança de
- * `routeCode` no backend exige PR aqui também — o teste de cobertura
- * (`routeCodes.test.ts`) garante que toda rota privada do `AppRoutes`
- * esteja mapeada.
+ * `routeCode` no backend exige PR aqui também. O teste
+ * `routeCodes.test.ts` cobre apenas resolução de pathnames conhecidos,
+ * fallback `null` para públicas/desconhecidas e o prefixo `KURTTO_V1_`
+ * nas entries existentes — ele **não** faz cross-check contra
+ * `App.tsx`/`AppRoutes`, então uma rota privada nova sem mapeamento
+ * aqui só cai em runtime (header `X-Route-Code` ausente → `verify-token`
+ * 400 → fallback de tolerância). Adicionar paridade automatizada é
+ * trabalho futuro.
  *
  * Páginas públicas (`/login`, `/error/403`, fallback `*` 404) **não**
  * entram aqui — `ProtectedRoute` é o único call site, e o guard só

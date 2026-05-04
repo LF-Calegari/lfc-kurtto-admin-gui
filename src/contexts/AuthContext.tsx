@@ -133,12 +133,15 @@ export function AuthProvider({ children }: Readonly<AuthProviderProps>): JSX.Ele
           setUser(null);
           return;
         }
-        // Falha de rede / parse / 5xx / 400: mantém sessão local em pé
-        // (pode ser que o usuário esteja offline). Não temos catálogo
-        // hidratado, então o usuário fica em estado anônimo até a
-        // próxima tentativa — `LoginRoute` redireciona para login.
-        // O cenário é raro; o objetivo aqui é não derrubar tokens
-        // válidos por uma intermitência.
+        // Falha de rede / parse / 5xx / 400: limpa a sessão local para
+        // evitar token órfão sem catálogo hidratado. Sem o resultado de
+        // `/auth/permissions` não temos `routeCodes` nem perfil — manter
+        // o token salvo levaria a um estado inconsistente em que o
+        // usuário aparece "logado" mas qualquer guard de rota cairia
+        // (não há `routeCodes` para validar). Trade-off aceito: rede
+        // intermitente força novo login no próximo refresh, em troca
+        // de não ter usuário "fantasma" navegando sem permissões
+        // carregadas. Cenário 401 já foi tratado no branch acima.
         clearStoredSession();
         tokenRef.current = null;
         setUser(null);
