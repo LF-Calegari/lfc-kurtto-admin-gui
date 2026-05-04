@@ -1,11 +1,19 @@
 import {
   AUTH_LOGIN_PATH,
   AUTH_LOGOUT_PATH,
+  AUTH_PERMISSIONS_PATH,
   AUTH_USERS_PATH,
   AUTH_VERIFY_TOKEN_PATH,
 } from '../constants/authEndpoints';
 
-import { listUsersByIds, loginWithPassword, logoutSession, verifySessionToken } from './authService';
+import {
+  getPermissions,
+  listUsersByIds,
+  loginWithPassword,
+  logoutSession,
+  toAuthUser,
+  verifySessionToken,
+} from './authService';
 
 function jsonResponse(body: unknown, status = 200): Response {
   const ok = status >= 200 && status < 300;
@@ -58,49 +66,218 @@ describe('authService', () => {
     });
   });
 
-  it('verifySessionToken envia Authorization Bearer e mapeia o usuário com identity, permissions e routeCodes', async () => {
+  it('verifySessionToken envia Authorization Bearer + X-System-Id + X-Route-Code e mapeia payload minimal', async () => {
     const fetchMock = jest.fn().mockResolvedValue(
       jsonResponse({
-        id: '11111111-1111-1111-1111-111111111111',
-        name: 'Admin',
-        email: 'admin@test.com',
-        identity: 2,
-        permissions: ['aaaa-bbbb', 'cccc-dddd'],
-        routeCodes: ['links.read', 'links.create'],
+        valid: true,
+        issuedAt: '2026-04-26T18:00:00Z',
+        expiresAt: '2026-04-26T19:00:00Z',
       }),
     );
     global.fetch = fetchMock;
 
-    const user = await verifySessionToken('jwt-abc');
+    const result = await verifySessionToken('jwt-abc', 'KURTTO_V1_HOME');
 
-    expect(user).toEqual({
-      id: '11111111-1111-1111-1111-111111111111',
-      name: 'Admin',
-      email: 'admin@test.com',
-      identity: 2,
-      permissions: ['aaaa-bbbb', 'cccc-dddd'],
-      routeCodes: ['links.read', 'links.create'],
+    expect(result).toEqual({
+      valid: true,
+      issuedAt: '2026-04-26T18:00:00Z',
+      expiresAt: '2026-04-26T19:00:00Z',
     });
     expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_VERIFY_TOKEN_PATH}`, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer jwt-abc',
+        'X-System-Id': SYSTEM_ID,
+        'X-Route-Code': 'KURTTO_V1_HOME',
+      },
+      signal: undefined,
+    });
+  });
+
+  it('verifySessionToken propaga AbortSignal ao fetch', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      jsonResponse({
+        valid: true,
+        issuedAt: '2026-04-26T18:00:00Z',
+        expiresAt: '2026-04-26T19:00:00Z',
+      }),
+    );
+    global.fetch = fetchMock;
+    const controller = new AbortController();
+
+    await verifySessionToken('jwt-abc', 'KURTTO_V1_HOME', { signal: controller.signal });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `http://auth.test${AUTH_VERIFY_TOKEN_PATH}`,
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('verifySessionToken propaga 401 com mensagem do servidor', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ message: 'Token expirado.' }, 401));
+
+    await expect(verifySessionToken('jwt', 'KURTTO_V1_HOME')).rejects.toMatchObject({
+      message: 'Token expirado.',
+      status: 401,
+    });
+  });
+
+  it('verifySessionToken propaga 403 distinto de 401 para o caller decidir redirect', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'Sem direito a esta rota.' }, 403),
+    );
+
+    await expect(verifySessionToken('jwt', 'KURTTO_V1_HOME')).rejects.toMatchObject({
+      message: 'Sem direito a esta rota.',
+      status: 403,
+    });
+  });
+
+  it('verifySessionToken oculta detalhes de 400 que mencionam Rota', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'Rota inválida ou inexistente.' }, 400),
+    );
+
+    await expect(verifySessionToken('jwt-abc', 'INVALID_CODE')).rejects.toMatchObject({
+      message: 'Sessão inválida ou expirada.',
+      status: 400,
+    });
+  });
+
+  it('verifySessionToken oculta detalhes de 400 que mencionam SystemId', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'SystemId inválido.' }, 400),
+    );
+
+    await expect(verifySessionToken('jwt-abc', 'KURTTO_V1_HOME')).rejects.toMatchObject({
+      message: 'Sessão inválida ou expirada.',
+      status: 400,
+    });
+  });
+
+  it('verifySessionToken falha quando o payload não contém valid/issuedAt/expiresAt', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ valid: true }));
+
+    await expect(verifySessionToken('jwt-abc', 'KURTTO_V1_HOME')).rejects.toMatchObject({
+      message: expect.stringMatching(/resposta inválida/i),
+    });
+  });
+
+  it('getPermissions chama o endpoint /auth/permissions com Bearer + X-System-Id', async () => {
+    const fetchMock = jest.fn().mockResolvedValue(
+      jsonResponse({
+        user: {
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'Admin',
+          email: 'admin@test.com',
+          identity: 2,
+        },
+        permissions: ['perm-1', 'perm-2'],
+        permissionCodes: ['perm:Urls.Read', 'perm:Urls.Write'],
+        routeCodes: ['KURTTO_V1_HOME', 'KURTTO_V1_URLS_HOME'],
+      }),
+    );
+    global.fetch = fetchMock;
+
+    const result = await getPermissions('jwt-abc');
+
+    expect(result).toEqual({
+      user: {
+        id: '22222222-2222-2222-2222-222222222222',
+        name: 'Admin',
+        email: 'admin@test.com',
+        identity: 2,
+      },
+      permissions: ['perm-1', 'perm-2'],
+      permissionCodes: ['perm:Urls.Read', 'perm:Urls.Write'],
+      routeCodes: ['KURTTO_V1_HOME', 'KURTTO_V1_URLS_HOME'],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(`http://auth.test${AUTH_PERMISSIONS_PATH}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer jwt-abc', 'X-System-Id': SYSTEM_ID },
     });
   });
 
-  it('verifySessionToken usa defaults seguros quando identity/permissions/routeCodes estão ausentes', async () => {
+  it('getPermissions usa defaults seguros quando arrays estão ausentes', async () => {
     global.fetch = jest.fn().mockResolvedValue(
       jsonResponse({
-        id: '11111111-1111-1111-1111-111111111111',
-        name: 'Admin',
-        email: 'admin@test.com',
+        user: {
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'Admin',
+          email: 'admin@test.com',
+        },
       }),
     );
 
-    const user = await verifySessionToken('jwt-abc');
+    const result = await getPermissions('jwt-abc');
 
-    expect(user.identity).toBe(0);
-    expect(user.permissions).toEqual([]);
-    expect(user.routeCodes).toEqual([]);
+    expect(result.user.identity).toBe(0);
+    expect(result.permissions).toEqual([]);
+    expect(result.permissionCodes).toEqual([]);
+    expect(result.routeCodes).toEqual([]);
+  });
+
+  it('getPermissions propaga 401', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ message: 'Token expirado.' }, 401));
+
+    await expect(getPermissions('jwt')).rejects.toMatchObject({
+      message: 'Token expirado.',
+      status: 401,
+    });
+  });
+
+  it('getPermissions oculta detalhes de 400 que mencionam SystemId', async () => {
+    global.fetch = jest.fn().mockResolvedValue(
+      jsonResponse({ message: 'SystemId inválido.' }, 400),
+    );
+
+    await expect(getPermissions('jwt-abc')).rejects.toMatchObject({
+      message: 'Não foi possível carregar as permissões. Tente novamente.',
+      status: 400,
+    });
+  });
+
+  it('getPermissions falha em fail-fast quando REACT_APP_SYSTEM_ID está vazio', async () => {
+    process.env.REACT_APP_SYSTEM_ID = '   ';
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock;
+
+    await expect(getPermissions('jwt-abc')).rejects.toMatchObject({
+      message: expect.stringMatching(/configure react_app_system_id/i),
+      status: 0,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('getPermissions falha quando body não traz user', async () => {
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ permissions: [] }));
+
+    await expect(getPermissions('jwt-abc')).rejects.toMatchObject({
+      message: expect.stringMatching(/resposta inválida/i),
+    });
+  });
+
+  it('toAuthUser projeta PermissionsResponse para AuthUser preservando arrays', () => {
+    const user = toAuthUser({
+      user: {
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        name: 'Pedro',
+        email: 'pedro@test.com',
+        identity: 1,
+      },
+      permissions: ['p-1'],
+      permissionCodes: ['perm:Urls.Read'],
+      routeCodes: ['KURTTO_V1_HOME'],
+    });
+
+    expect(user).toEqual({
+      id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      name: 'Pedro',
+      email: 'pedro@test.com',
+      identity: 1,
+      permissions: ['p-1'],
+      routeCodes: ['KURTTO_V1_HOME'],
+    });
   });
 
   it('logoutSession chama endpoint de logout com Bearer', async () => {
@@ -139,23 +316,6 @@ describe('authService', () => {
     await expect(loginWithPassword('a@b.com', 'x')).rejects.toMatchObject({
       message: 'Erro de validação',
       status: 400,
-    });
-  });
-
-  it('verifySessionToken falha com corpo inválido', async () => {
-    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ id: 1, name: 'x', email: 'a@b.com' }));
-
-    await expect(verifySessionToken('jwt')).rejects.toMatchObject({
-      message: expect.stringMatching(/resposta inválida/i),
-    });
-  });
-
-  it('verifySessionToken propaga falha 401', async () => {
-    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ message: 'Expirado.' }, 401));
-
-    await expect(verifySessionToken('jwt')).rejects.toMatchObject({
-      message: 'Expirado.',
-      status: 401,
     });
   });
 
@@ -240,7 +400,7 @@ describe('authService', () => {
     const fetchMock = jest.fn();
     global.fetch = fetchMock;
 
-    await expect(verifySessionToken('jwt-abc')).rejects.toMatchObject({
+    await expect(verifySessionToken('jwt-abc', 'KURTTO_V1_HOME')).rejects.toMatchObject({
       message: expect.stringMatching(/configure react_app_system_id/i),
       status: 0,
     });
@@ -265,17 +425,6 @@ describe('authService', () => {
 
     await expect(loginWithPassword('a@b.com', 'x')).rejects.toMatchObject({
       message: 'Não foi possível autenticar no momento. Tente novamente.',
-      status: 400,
-    });
-  });
-
-  it('verifySessionToken oculta detalhes de 400 que mencionam SystemId', async () => {
-    global.fetch = jest.fn().mockResolvedValue(
-      jsonResponse({ message: 'SystemId inválido.' }, 400),
-    );
-
-    await expect(verifySessionToken('jwt-abc')).rejects.toMatchObject({
-      message: 'Sessão inválida ou expirada.',
       status: 400,
     });
   });

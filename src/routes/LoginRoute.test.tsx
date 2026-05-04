@@ -51,11 +51,15 @@ describe('LoginRoute', () => {
     localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'jwt' }));
     global.fetch = jest.fn().mockResolvedValue(
       jsonResponse({
-        id: '22222222-2222-2222-2222-222222222222',
-        name: 'Logado',
-        email: 'logado@test.com',
-        identity: 1,
+        user: {
+          id: '22222222-2222-2222-2222-222222222222',
+          name: 'Logado',
+          email: 'logado@test.com',
+          identity: 1,
+        },
         permissions: [],
+        permissionCodes: [],
+        routeCodes: [],
       }),
     );
 
