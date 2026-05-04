@@ -70,15 +70,35 @@ describe('App', () => {
 
   it('redireciona rota raiz para Home quando já autenticado', async () => {
     localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify({ token: 'jwt-sessao' }));
-    global.fetch = jest.fn().mockResolvedValue(
-      jsonResponse({
-        id: '44444444-4444-4444-4444-444444444444',
-        name: 'Sessão',
-        email: 'sessao@test.com',
-        identity: 1,
-        permissions: [],
-      }),
-    );
+    global.fetch = jest.fn().mockImplementation((input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.includes('/auth/permissions')) {
+        return Promise.resolve(
+          jsonResponse({
+            user: {
+              id: '44444444-4444-4444-4444-444444444444',
+              name: 'Sessão',
+              email: 'sessao@test.com',
+              identity: 1,
+            },
+            permissions: [],
+            permissionCodes: [],
+            routeCodes: ['KURTTO_V1_HOME'],
+          }),
+        );
+      }
+      if (url.includes('/auth/verify-token')) {
+        return Promise.resolve(
+          jsonResponse({
+            valid: true,
+            issuedAt: '2026-04-26T18:00:00Z',
+            expiresAt: '2026-04-26T19:00:00Z',
+          }),
+        );
+      }
+      // listLinks da kurtto-api: devolve estrutura mínima para Home não quebrar.
+      return Promise.resolve(jsonResponse({ data: [], meta: { page: 1, limit: 1, total: 0, total_pages: 0 } }));
+    });
 
     window.history.pushState({}, '', '/');
     render(<App />);

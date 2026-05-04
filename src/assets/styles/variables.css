@@ -16,6 +16,7 @@
   --color-amber: #f2a623;
   --color-amber-rgb: 242, 166, 35;
   --color-blush: #faece7;
+  --color-white: #ffffff;
   --color-ink: #1a1a1a;
   --color-ink-rgb: 26, 26, 26;
   --color-border-subtle: rgba(var(--color-ink-rgb), 0.08);

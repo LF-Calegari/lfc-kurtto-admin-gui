@@ -4,6 +4,7 @@ import { SessionBootstrapSpinner } from './components/ui/SessionBootstrapSpinner
 import { ROUTES } from './constants/routes';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import Forbidden from './pages/Forbidden/Forbidden';
 import Home from './pages/Home/Home';
 import Links from './pages/Links/Links';
 import { LoginRoute } from './routes/LoginRoute';
@@ -26,6 +27,7 @@ function AppRoutes(): JSX.Element {
   return (
     <Routes>
       <Route path={ROUTES.LOGIN} element={<LoginRoute />} />
+      <Route path={ROUTES.FORBIDDEN} element={<Forbidden />} />
       <Route element={<ProtectedRoute />}>
         <Route path={ROUTES.HOME} element={<Home />} />
         <Route path={ROUTES.LINKS} element={<Links />} />

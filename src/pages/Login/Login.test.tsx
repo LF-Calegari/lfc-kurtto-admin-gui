@@ -132,11 +132,14 @@ describe('Login', () => {
       .mockResolvedValueOnce(jsonResponse({ token: 'jwt-login' }))
       .mockResolvedValueOnce(
         jsonResponse({
-          id: '22222222-2222-2222-2222-222222222222',
-          name: 'Usuário QA',
-          email: validCredentials.email,
-          identity: 1,
+          user: {
+            id: '22222222-2222-2222-2222-222222222222',
+            name: 'Usuário QA',
+            email: validCredentials.email,
+            identity: 1,
+          },
           permissions: [],
+          permissionCodes: [],
           routeCodes: [],
         }),
       );
