@@ -12,6 +12,20 @@ Você coordena, passa contexto e controla o loop.
 
 ---
 
+# Modelo de execução (CRÍTICO — leia antes de tudo)
+
+**Este arquivo é um playbook executado pela sessão principal do Claude Code, NÃO um subagent executável via Agent tool.**
+
+**Por quê:** este harness não permite invocação aninhada de subagents — quando este `maestro.md` é carregado via `Agent({subagent_type: 'maestro'})`, o subagent resultante **não recebe a Agent tool em seu próprio toolset**. Isso impede que o maestro chame `programmer`/`reviewer` da forma exigida pelo guardrail abaixo. Tentativa registrada na issue #58 confirmou empiricamente: maestro spawnou, fez ToolSearch, confirmou ausência de Agent tool, e abortou corretamente sem fallback inseguro.
+
+**Forma correta de uso:**
+
+1. Quando o usuário pedir para resolver uma issue via "maestro" / opção (A) / pipeline completo, **a sessão principal lê este playbook e executa o algoritmo descrito** invocando os subagents `programmer` e `reviewer` via Agent tool diretamente (a sessão principal *tem* Agent tool).
+2. Não invocar este `maestro.md` via `Agent({subagent_type: 'maestro'})` — vai falhar no Passo 1 e retornar bloqueio. Se foi invocado por engano, o subagent resultante deve abortar e instruir a sessão principal a executar o playbook diretamente.
+3. Os passos abaixo (1–5) descrevem o **algoritmo** que a sessão principal segue. As frases "Chame o subagent X" significam "a sessão principal invoca Agent({subagent_type: X, ...})".
+
+---
+
 # Sincronização `.claude` e `.cursor` (obrigatório)
 
 Este agente existe em dois caminhos:
